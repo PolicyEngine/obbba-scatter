@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import * as d3 from 'd3';
 
-const TaxImpactVisualization = () => {
+const App = () => {
   const [data, setData] = useState([]);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
@@ -50,8 +50,9 @@ const TaxImpactVisualization = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const csvFileName = 'household_tax_income_changes_senate_current_law_baseline.csv';
-        const response = await fetch(`${import.meta.env.BASE_URL}${csvFileName}`);
+        const response = await fetch(
+          `${import.meta.env.BASE_URL}household_tax_income_changes_senate_current_law_baseline.csv`
+        );
         const raw = await response.text();
         const result = Papa.parse(raw, {
           header: true,
@@ -282,24 +283,38 @@ const TaxImpactVisualization = () => {
       .style('stroke-dasharray', '3,3')
       .style('opacity', 0.5);
 
-    // Add axes
-    g.append('g')
-      .attr('transform', `translate(0,${plotHeight})`)
-      .call(d3.axisBottom(xScale)
-        .tickFormat(d => d + '%')
-      );
+    // Add axes (animated during axis animation)
+    const xAxisG = g.append('g')
+      .attr('transform', `translate(0,${plotHeight})`);
 
-    // Create custom y-axis
-    const yAxis = g.append('g');
-    yTicks.forEach(tick => {
-      yAxis.append('text')
-        .attr('x', -10)
-        .attr('y', distortY(tick))
-        .attr('text-anchor', 'end')
-        .attr('alignment-baseline', 'middle')
-        .style('font-size', '12px')
-        .text('$' + d3.format(',')(tick));
-    });
+    if (scrollState.axisAnimationProgress > 0) {
+      xAxisG.transition()
+        .duration(600)
+        .ease(d3.easeCubicInOut)
+        .call(d3.axisBottom(xScale)
+          .tickFormat(d => `${d}%`)
+        );
+    } else {
+      xAxisG.call(d3.axisBottom(xScale)
+        .tickFormat(d => `${d}%`)
+      );
+    }
+
+    const yAxisG = g.append('g');
+    if (scrollState.axisAnimationProgress > 0) {
+      yAxisG.transition()
+        .duration(600)
+        .ease(d3.easeCubicInOut)
+        .call(d3.axisLeft(yScale)
+          .ticks(8)
+          .tickFormat(d => `${d3.format(',')(d)}`)
+        );
+    } else {
+      yAxisG.call(d3.axisLeft(yScale)
+        .ticks(8)
+        .tickFormat(d => `${d3.format(',')(d)}`)
+      );
+    }
 
     // Add vertical line at x=0
     if (scrollState.axisAnimationProgress > 0 && interpolated.t > 0) {
@@ -507,7 +522,13 @@ const TaxImpactVisualization = () => {
   }, [data, scrollProgress, selectedPoint]);
 
   return (
-    <div className="w-full h-screen bg-gray-50">
+    <div className="w-full h-screen bg-gray-50 relative">
+      {/* Loading indicator */}
+      {!data.length && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-lg text-gray-500">Loading data...</p>
+        </div>
+      )}
       <div 
         ref={scrollContainerRef}
         className="w-full h-full overflow-y-scroll"
@@ -543,4 +564,4 @@ const TaxImpactVisualization = () => {
   );
 };
 
-export default TaxImpactVisualization;
+export default App;
