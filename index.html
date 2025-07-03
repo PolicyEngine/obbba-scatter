@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" class="h-full bg-gray-50">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React</title>
+    <script>
+      tailwind.config = {
+        content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"]
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="h-full">
+    <div id="root" class="h-full">
+      <div class="w-full h-screen bg-gray-50 relative">
+        <div class="absolute inset-0 flex flex-col items-center justify-center space-y-6 animate-pulse">
+          <div class="w-11/12 h-5/6 bg-gray-200 rounded-lg"></div>
+          <div class="w-1/2 h-6 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
