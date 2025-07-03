@@ -11,41 +11,12 @@ const App = () => {
   const scrollContainerRef = useRef(null);
 
   // Define the sections with their income thresholds and messages
-  const sections = [
-    {
-      threshold: 75000,
-      title: "Here's how the bill will affect families with household income of less than $75k, including benefits and taxes.",
-      gainedPercent: 73,
-      lostPercent: 27,
-      noChangePercent: 0,
-      yMax: 75000,
-      xDomain: [-30, 10],
-      // Annotation target: low-income family that benefits
-      annotationTarget: { income: 35000, percentChange: 3.5 }
-    },
-    {
-      threshold: 200000,
-      title: "Middle-income families see mixed results, with many benefiting from the standard deduction changes.",
-      gainedPercent: 83,
-      lostPercent: 17,
-      noChangePercent: 0,
-      yMax: 250000,
-      xDomain: [-15, 5],
-      // Annotation target: middle-income family with small loss
-      annotationTarget: { income: 120000, percentChange: -2.5 }
-    },
-    {
-      threshold: Infinity,
-      title: "High-income households face larger tax increases due to SALT limitations and rate changes.",
-      gainedPercent: 85,
-      lostPercent: 15,
-      noChangePercent: 0,
-      yMax: 500000,
-      xDomain: [-10, 5],
-      // Annotation target: high-income family with significant loss
-      annotationTarget: { income: 350000, percentChange: -4.8 }
-    }
-  ];
+  const thresholds = [70000, 120000, 240000, 350000, 500000, 1000000, 2000000, 3000000, 5000000, 7000000];
+  const sections = thresholds.map((threshold, i) => ({
+    threshold,
+    title: `Annotation ${i + 1}`,
+    annotationTarget: { income: threshold * 0.5, percentChange: 0 }
+  }));
 
   // Load and process the CSV data
   useEffect(() => {
@@ -151,61 +122,67 @@ const App = () => {
     };
   };
 
-  // Interpolate between sections for axis animation
+  // Fixed X-axis domains for first three sections, shrinking to [-20,20] thereafter
+  const fixedXDomains = [ [-40, 40], [-30, 30], [-20, 20] ];
+  const getFixedDomain = (idx) => (idx < 2 ? fixedXDomains[idx] : fixedXDomains[2]);
   const getInterpolatedValues = (sectionProgress) => {
     const currentIndex = Math.floor(sectionProgress);
     const nextIndex = Math.min(currentIndex + 1, sections.length - 1);
     const t = sectionProgress - currentIndex;
-    
-    if (currentIndex >= sections.length) {
-      const last = sections[sections.length - 1];
-      return {
-        yMax: last.yMax,
-        xMin: last.xDomain[0],
-        xMax: last.xDomain[1],
-        threshold: last.threshold === Infinity ? 500000 : last.threshold,
-        gainedPercent: last.gainedPercent,
-        lostPercent: last.lostPercent,
-        currentIndex: sections.length - 1,
-        nextIndex: sections.length - 1,
-        t: 0
-      };
-    }
-    
-    const current = sections[currentIndex];
-    const next = sections[nextIndex];
-    
-    // Only interpolate if we're animating between sections
+
+    // Compute gain/loss stats for a section
+    const computeStats = (i) => {
+      const sec = sections[i];
+      const list = data.filter(d => d['Gross Income'] <= sec.threshold);
+      const total = list.length;
+      if (!total) return { yMax: sec.threshold, gainedPercent: 0, lostPercent: 0, noChangePercent: 0 };
+      const gainCount = list.filter(d => d['Total Change in Net Income'] > 0).length;
+      const lossCount = list.filter(d => d['Total Change in Net Income'] < 0).length;
+      const yMax = sec.threshold;
+      const gainedPercent = Math.round((gainCount / total) * 100);
+      const lostPercent = Math.round((lossCount / total) * 100);
+      return { yMax, gainedPercent, lostPercent, noChangePercent: 100 - gainedPercent - lostPercent };
+    };
+
+    const currStats = computeStats(currentIndex);
+    const [currMin, currMax] = getFixedDomain(currentIndex);
     if (t > 0 && currentIndex !== nextIndex) {
+      const nextStats = computeStats(nextIndex);
+      const [nextMin, nextMax] = getFixedDomain(nextIndex);
+      const interpYMax = d3.interpolate(currStats.yMax, nextStats.yMax)(t);
       return {
-        yMax: d3.interpolate(current.yMax, next.yMax)(t),
-        xMin: d3.interpolate(current.xDomain[0], next.xDomain[0])(t),
-        xMax: d3.interpolate(current.xDomain[1], next.xDomain[1])(t),
-        threshold: current.threshold === Infinity ? 500000 : d3.interpolate(current.threshold, next.threshold === Infinity ? 500000 : next.threshold)(t),
-        gainedPercent: Math.round(d3.interpolate(current.gainedPercent, next.gainedPercent)(t)),
-        lostPercent: Math.round(d3.interpolate(current.lostPercent, next.lostPercent)(t)),
+        xMin: d3.interpolate(currMin, nextMin)(t),
+        xMax: d3.interpolate(currMax, nextMax)(t),
+        yMax: interpYMax,
+        threshold: interpYMax,
+        gainedPercent: Math.round(d3.interpolate(currStats.gainedPercent, nextStats.gainedPercent)(t)),
+        lostPercent: Math.round(d3.interpolate(currStats.lostPercent, nextStats.lostPercent)(t)),
+        noChangePercent: Math.round(d3.interpolate(currStats.noChangePercent, nextStats.noChangePercent)(t)),
         currentIndex,
         nextIndex,
         t
       };
     }
-    
-    // No interpolation needed
+
     return {
-      yMax: current.yMax,
-      xMin: current.xDomain[0],
-      xMax: current.xDomain[1],
-      threshold: current.threshold === Infinity ? 500000 : current.threshold,
-      gainedPercent: current.gainedPercent,
-      lostPercent: current.lostPercent,
+      xMin: currMin,
+      xMax: currMax,
+      yMax: currStats.yMax,
+      threshold: currStats.yMax,
+      gainedPercent: currStats.gainedPercent,
+      lostPercent: currStats.lostPercent,
+      noChangePercent: currStats.noChangePercent,
       currentIndex,
       nextIndex: currentIndex,
       t: 0
     };
   };
 
-  // Update visualization
+  // Update visualization; track section changes to trigger Y-axis stretch
+  const prevSectionRef = useRef(null);
+  const yTransitionDone = useRef(false);
   useEffect(() => {
+    prevSectionRef.current = getScrollState(scrollProgress).currentSectionIndex;
     if (!data.length || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
@@ -255,9 +232,10 @@ const App = () => {
       .attr('width', plotWidth)
       .attr('height', plotHeight);
 
+
     // Add grid lines
     const yTicks = yScale.ticks(8);
-    const yGrid = g.append('g')
+    g.append('g')
       .attr('class', 'grid y-grid')
       .selectAll('line')
       .data(yTicks)
@@ -286,56 +264,37 @@ const App = () => {
       .style('stroke', '#cbd5e1')
       .style('stroke-width', 1.5)
       .style('stroke-dasharray', '4,4')
-      .style('opacity', 0.7);
+      .style('opacity', 0.7)
+      .transition()
+      .duration(100)
+      .ease(d3.easeQuadOut)
+      .attr('x1', d => xScale(d))
+      .attr('x2', d => xScale(d));
 
-    if (scrollState.axisAnimationProgress > 0) {
-      yGrid.transition()
-        .delay(100)
-        .duration(2000)
-        .ease(d3.easeElasticOut)
-        .attr('y1', d => distortY(d))
-        .attr('y2', d => distortY(d));
-
-      xGrid.transition()
-        .delay(300)
-        .duration(2000)
-        .ease(d3.easeElasticOut)
-        .attr('x1', d => xScale(d))
-        .attr('x2', d => xScale(d));
-    }
+    // Grid lines are static; X morphs with scroll, Y morphs with axis transition below
+    xGrid.attr('x1', d => xScale(d)).attr('x2', d => xScale(d));
 
     // Add axes (animated during axis animation)
     const xAxisG = g.append('g')
       .attr('transform', `translate(0,${plotHeight})`);
 
-    if (scrollState.axisAnimationProgress > 0) {
-      xAxisG.transition()
-        .duration(2000)
-        .ease(d3.easeElasticOut)
-        .call(d3.axisBottom(xScale)
-          .tickFormat(d => `${d}%`)
-        );
-    } else {
-      xAxisG.call(d3.axisBottom(xScale)
-        .tickFormat(d => `${d}%`)
-      );
-    }
+    // X-axis shrinks fluidly via scroll-driven transition
+    xAxisG.transition()
+      .duration(100)
+      .ease(d3.easeQuadOut)
+      .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
 
     const yAxisG = g.append('g');
-    if (scrollState.axisAnimationProgress > 0) {
-      yAxisG.transition()
-        .delay(300)
+    // Y-axis stretch transition only upon first crossing from section 0 → 1
+    if (prevSectionRef.current === 0 && scrollState.currentSectionIndex === 1 && !yTransitionDone.current) {
+      yTransitionDone.current = true;
+      d3.select(yAxisG.node())
+        .transition()
         .duration(2000)
-        .ease(d3.easeBounceOut)
-        .call(d3.axisLeft(yScale)
-          .ticks(8)
-          .tickFormat(d => `${d3.format(',')(d)}`)
-        );
+        .ease(d3.easeQuadIn)
+        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
     } else {
-      yAxisG.call(d3.axisLeft(yScale)
-        .ticks(8)
-        .tickFormat(d => `${d3.format(',')(d)}`)
-      );
+      yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
     }
 
     // Add vertical line at x=0
@@ -423,7 +382,7 @@ const App = () => {
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
       .style('font-weight', 'bold')
-      .text(`Gained Money ${interpolated.gainedPercent}% Lost Money ${interpolated.lostPercent}% No Change 0%`);
+      .text(`Gained Money ${interpolated.gainedPercent}%  Lost Money ${interpolated.lostPercent}%  No Change ${interpolated.noChangePercent}%`);
 
     // Add click handler to background to clear selection
     svg.on('click', () => {
