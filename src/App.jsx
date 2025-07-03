@@ -323,6 +323,12 @@ const App = () => {
     }
 
     // Add points
+
+    const radiusScale = d3.scaleSqrt()
+      .domain([0, d3.max(data, d => d['Household Weight']) || 1])
+      .range([0.5, 25]);  // Adjust these values to your preference
+
+      
     const pointsGroup = g.append('g')
       .attr('clip-path', 'url(#plot-clip)');
 
@@ -334,8 +340,8 @@ const App = () => {
     points.enter()
       .append('circle')
       .attr('class', 'point')
-      .attr('r', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2)
-      .style('fill', d => d['Percentage Change in Net Income'] > 0 ? '#10b981' : '#ef4444')
+      .attr('r', d => radiusScale(d['Household Weight'] || 0))
+      .style('fill', d => d['Percentage Change in Net Income'] > 0 ? '#227773' : '#808080')
       .style('stroke', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 'white' : 'none')
       .style('stroke-width', 2)
       .style('cursor', 'pointer')
