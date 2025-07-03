@@ -254,8 +254,8 @@ const App = () => {
 
     // Add grid lines
     const yTicks = yScale.ticks(8);
-    g.append('g')
-      .attr('class', 'grid')
+    const yGrid = g.append('g')
+      .attr('class', 'grid y-grid')
       .selectAll('line')
       .data(yTicks)
       .enter()
@@ -264,13 +264,14 @@ const App = () => {
       .attr('x2', plotWidth)
       .attr('y1', d => distortY(d))
       .attr('y2', d => distortY(d))
-      .style('stroke', '#e5e7eb')
-      .style('stroke-dasharray', '3,3')
-      .style('opacity', 0.5);
+      .style('stroke', '#cbd5e1')
+      .style('stroke-width', 1.5)
+      .style('stroke-dasharray', '4,4')
+      .style('opacity', 0.7);
 
     const xTicks = xScale.ticks(10);
-    g.append('g')
-      .attr('class', 'grid')
+    const xGrid = g.append('g')
+      .attr('class', 'grid x-grid')
       .selectAll('line')
       .data(xTicks)
       .enter()
@@ -279,9 +280,26 @@ const App = () => {
       .attr('x2', d => xScale(d))
       .attr('y1', 0)
       .attr('y2', plotHeight)
-      .style('stroke', '#e5e7eb')
-      .style('stroke-dasharray', '3,3')
-      .style('opacity', 0.5);
+      .style('stroke', '#cbd5e1')
+      .style('stroke-width', 1.5)
+      .style('stroke-dasharray', '4,4')
+      .style('opacity', 0.7);
+
+    if (scrollState.axisAnimationProgress > 0) {
+      yGrid.transition()
+        .delay(100)
+        .duration(2000)
+        .ease(d3.easeElasticOut)
+        .attr('y1', d => distortY(d))
+        .attr('y2', d => distortY(d));
+
+      xGrid.transition()
+        .delay(300)
+        .duration(2000)
+        .ease(d3.easeElasticOut)
+        .attr('x1', d => xScale(d))
+        .attr('x2', d => xScale(d));
+    }
 
     // Add axes (animated during axis animation)
     const xAxisG = g.append('g')
@@ -289,8 +307,8 @@ const App = () => {
 
     if (scrollState.axisAnimationProgress > 0) {
       xAxisG.transition()
-        .duration(600)
-        .ease(d3.easeCubicInOut)
+        .duration(2000)
+        .ease(d3.easeElasticOut)
         .call(d3.axisBottom(xScale)
           .tickFormat(d => `${d}%`)
         );
@@ -303,8 +321,9 @@ const App = () => {
     const yAxisG = g.append('g');
     if (scrollState.axisAnimationProgress > 0) {
       yAxisG.transition()
-        .duration(600)
-        .ease(d3.easeCubicInOut)
+        .delay(300)
+        .duration(2000)
+        .ease(d3.easeBounceOut)
         .call(d3.axisLeft(yScale)
           .ticks(8)
           .tickFormat(d => `${d3.format(',')(d)}`)
@@ -539,25 +558,12 @@ const App = () => {
           <div className="sticky top-0 w-full h-screen flex items-center justify-center">
             <svg
               ref={svgRef}
-              width={1200}
-              height={600}
-              className="bg-white rounded-lg shadow-lg"
+              viewBox="0 0 1200 600"
+              preserveAspectRatio="xMidYMid meet"
+              className="w-full h-screen bg-white rounded-lg shadow-lg"
             />
           </div>
           
-          {/* Progress indicator */}
-          <div className="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg">
-            <div className="text-sm text-gray-600">Scroll Progress</div>
-            <div className="w-32 h-2 bg-gray-200 rounded-full mt-2">
-              <div 
-                className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                style={{ width: `${scrollProgress * 100}%` }}
-              />
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Section {Math.min(Math.floor(scrollProgress * sections.length) + 1, sections.length)} of {sections.length}
-            </div>
-          </div>
         </div>
       </div>
     </div>
