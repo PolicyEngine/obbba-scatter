@@ -4,6 +4,7 @@ import * as d3 from 'd3';
 
 const App = () => {
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const svgRef = useRef(null);
@@ -85,8 +86,10 @@ const App = () => {
         });
 
         setData(parsed);
+        setLoading(false);
       } catch (error) {
         console.error('Error loading CSV data:', error);
+        setLoading(false);
       }
     };
 
@@ -542,10 +545,29 @@ const App = () => {
 
   return (
     <div className="w-full h-screen bg-gray-50 relative">
-      {/* Loading indicator */}
-      {!data.length && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-lg text-gray-500">Loading data...</p>
+      {loading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-gray-50 z-10">
+          <svg
+            className="animate-spin h-12 w-12 text-gray-600"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            />
+          </svg>
+          <p className="text-gray-600 text-lg">Loading data...</p>
         </div>
       )}
       <div 
