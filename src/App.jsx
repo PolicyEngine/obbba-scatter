@@ -328,7 +328,10 @@ const App = () => {
       .domain([0, d3.max(data, d => d['Household Weight']) || 1])
       .range([0.5, 25]);  // Adjust these values to your preference
 
-      
+    const opacityScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d['Household Weight']) || 1])
+      .range([0.1, 1]);  // Min 20% opacity, max 100% opacity
+
     const pointsGroup = g.append('g')
       .attr('clip-path', 'url(#plot-clip)');
 
@@ -348,16 +351,8 @@ const App = () => {
       .merge(points)
       .attr('cx', d => xScale(d['Percentage Change in Net Income']))
       .attr('cy', d => distortY(d['Gross Income']))
-      .style('opacity', d => {
-        if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) return 1;
-        const income = d['Gross Income'];
-        if (income > interpolated.threshold) return 0.1;
-        const fadeZone = interpolated.threshold * 0.2;
-        if (income > interpolated.threshold - fadeZone) {
-          return 0.6 * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
-        }
-        return 0.6;
-      })
+      .style('opacity', d => opacityScale(d['Household Weight'] || 0))  // SIMPLIFIED!
+
       .on('click', function(event, d) {
         event.stopPropagation();
         // Only allow selection if tooltip is visible
