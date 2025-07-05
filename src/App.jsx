@@ -81,7 +81,7 @@ const App = () => {
 
       const animate = (now) => {
         const t = Math.min((now - start) / duration, 1);
-        setAxisProgress(t);
+        setAxisProgress(d3.easeExpOut(t));
         if (t < 1) {
           axisFrameRef.current = requestAnimationFrame(animate);
         } else {
@@ -312,7 +312,7 @@ const App = () => {
       .style('opacity', 0.7)
       .transition()
       .duration(1000)
-      .ease(d3.easeQuadOut)
+      .ease(d3.easeExpOut)
       .attr('x1', d => xScale(d))
       .attr('x2', d => xScale(d));
 
@@ -326,7 +326,7 @@ const App = () => {
     // X-axis shrinks fluidly via scroll-driven transition
     xAxisG.transition()
       .duration(1000)
-      .ease(d3.easeQuadOut)
+      .ease(d3.easeExpOut)
       .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
 
     const yAxisG = g.append('g');
@@ -336,7 +336,7 @@ const App = () => {
       d3.select(yAxisG.node())
         .transition()
         .duration(3000)
-        .ease(d3.easeQuadIn)
+        .ease(d3.easeExpOut)
         .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
     } else {
       yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
@@ -409,12 +409,14 @@ const App = () => {
         d3.select(this)
           .transition()
           .duration(1000)
+          .ease(d3.easeExpOut)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 6 : 4);
       })
       .on('mouseout', function(event, d) {
         d3.select(this)
           .transition()
           .duration(1000)
+          .ease(d3.easeExpOut)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2);
       });
 
