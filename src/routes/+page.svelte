@@ -133,14 +133,10 @@
       intersectionObserver.disconnect();
     }
 
-    console.log('Setting up intersection observer with', textSections.length, 'sections');
 
-    // Find the text column element to use as root
+    // Clean intersection observer setup (backup method)
     const textColumn = document.querySelector('.text-column');
-    if (!textColumn) {
-      console.error('Text column not found for intersection observer');
-      return;
-    }
+    if (!textColumn) return;
 
     intersectionObserver = new IntersectionObserver(
       (entries) => {
@@ -149,8 +145,6 @@
 
         entries.forEach((entry) => {
           const index = parseInt(entry.target.dataset.index);
-          console.log(`Section ${index}: intersecting=${entry.isIntersecting}, ratio=${entry.intersectionRatio.toFixed(2)}`);
-          
           if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
             maxRatio = entry.intersectionRatio;
             mostVisibleEntry = { entry, index };
@@ -158,7 +152,6 @@
         });
 
         if (mostVisibleEntry && mostVisibleEntry.index !== currentStateIndex && !isTransitioning) {
-          console.log(`Transitioning from ${currentStateIndex} to ${mostVisibleEntry.index}`);
           transitionToState(mostVisibleEntry.index);
         }
       },
@@ -169,35 +162,26 @@
       }
     );
 
-    // Observe all text sections
     textSections.forEach((section, index) => {
       if (section) {
         section.dataset.index = index.toString();
         intersectionObserver.observe(section);
-        console.log(`Observing section ${index}`);
       }
     });
   }
 
   function transitionToState(newIndex) {
-    if (newIndex === currentStateIndex || isTransitioning) {
-      console.log('Transition blocked:', { newIndex, currentStateIndex, isTransitioning });
-      return;
-    }
+    if (newIndex === currentStateIndex || isTransitioning) return;
     
-    console.log('Starting transition from', currentStateIndex, 'to', newIndex);
     isTransitioning = true;
     const fromState = scrollStates[currentStateIndex];
     const toState = scrollStates[newIndex];
-    
-    console.log('From state:', fromState.id, 'To state:', toState.id);
     
     animateScales({
       from: fromState.view,
       to: toState.view,
       duration: 800,
       onComplete: () => {
-        console.log('Transition completed to state', newIndex);
         currentStateIndex = newIndex;
         isTransitioning = false;
       }
@@ -206,7 +190,6 @@
 
   function animateScales({ from, to, duration, onComplete }) {
     const startTime = performance.now();
-    console.log('Animation started');
     
     function animate(currentTime) {
       const elapsed = currentTime - startTime;
@@ -217,13 +200,11 @@
         ? 4 * progress * progress * progress
         : 1 - Math.pow(-2 * progress + 2, 3) / 2;
       
-      console.log('Animation progress:', progress.toFixed(2), 'eased:', eased.toFixed(2));
       renderVisualization(from, to, eased);
       
       if (progress < 1) {
         requestAnimationFrame(animate);
       } else {
-        console.log('Animation complete');
         onComplete();
       }
     }
@@ -263,14 +244,26 @@
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    // Filter data based on current view
-    const currentState = isTransitioning ? targetView : currentView;
-    const visibleData = data.filter(currentState.filter || (d => 
-      d['Gross Income'] >= yMin && 
-      d['Gross Income'] <= yMax && 
-      d['Percentage Change in Net Income'] >= xMin && 
-      d['Percentage Change in Net Income'] <= xMax
-    ));
+    // Don't filter data here - let points fade in/out during rendering
+    // Include all data that might be visible in either current or target view
+    let allRelevantData = data;
+    if (isTransitioning && fromView && toView) {
+      // During transition, include data visible in either view
+      allRelevantData = data.filter(d => {
+        const inFrom = fromView.filter ? fromView.filter(d) : true;
+        const inTo = toView.filter ? toView.filter(d) : true;
+        return inFrom || inTo;
+      });
+    } else {
+      // Static view - include current view data plus wider buffer for smooth transitions
+      const currentState = currentView;
+      allRelevantData = data.filter(d => {
+        // Include a much wider range so we can fade points in/out smoothly
+        return d['Gross Income'] >= 0 && d['Gross Income'] <= 15000000 &&
+               d['Percentage Change in Net Income'] >= -100 && 
+               d['Percentage Change in Net Income'] <= 100;
+      });
+    }
 
     // Create scales
     const xScale = d3.scaleLinear()
@@ -306,13 +299,40 @@
       ctx.stroke();
     });
 
-    // NYT-style point rendering with proper colors
-    visibleData.forEach(d => {
+    // Enhanced point rendering with smooth fade animations
+    allRelevantData.forEach(d => {
       const x = xScale(d['Percentage Change in Net Income']);
       const y = yScale(d['Gross Income']);
       
       // Skip if outside canvas bounds
       if (x < margin.left || x > width - margin.right || y < margin.top || y > height - margin.bottom) return;
+
+      // Calculate fade opacity based on filter transitions
+      let fadeOpacity = 1;
+      
+      if (isTransitioning && fromView && toView && interpolationT !== undefined) {
+        const visibleInFrom = fromView.filter ? fromView.filter(d) : true;
+        const visibleInTo = toView.filter ? toView.filter(d) : true;
+        
+        if (visibleInFrom && visibleInTo) {
+          fadeOpacity = 1; // Always visible
+        } else if (visibleInFrom && !visibleInTo) {
+          // Fade out with smooth easing: start at 1, end at 0
+          const easedProgress = interpolationT * interpolationT; // Quadratic ease-in
+          fadeOpacity = 1 - easedProgress;
+        } else if (!visibleInFrom && visibleInTo) {
+          // Fade in with smooth easing: start at 0, end at 1
+          const easedProgress = interpolationT * (2 - interpolationT); // Quadratic ease-out
+          fadeOpacity = easedProgress;
+        } else {
+          fadeOpacity = 0; // Never visible
+        }
+      } else {
+        // Static view - check if point should be visible
+        const currentState = currentView;
+        const shouldBeVisible = currentState.filter ? currentState.filter(d) : true;
+        fadeOpacity = shouldBeVisible ? 1 : 0;
+      }
 
       // NYT color scheme
       let color;
@@ -325,23 +345,26 @@
         color = '#d75442'; // red for losses
       }
 
-      // Point sizing and opacity
+      // Point sizing and final opacity
       const isHighlighted = d.isHighlighted && d.stateIndex === currentStateIndex;
       const radius = isHighlighted ? 4 : 2;
-      const opacity = isHighlighted ? 1 : 0.6;
+      const baseOpacity = isHighlighted ? 1 : 0.7;
+      const finalOpacity = baseOpacity * fadeOpacity;
 
-      ctx.globalAlpha = opacity;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.fill();
+      if (finalOpacity > 0.02) { // Only render if sufficiently visible
+        ctx.globalAlpha = finalOpacity;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+        ctx.fill();
 
-      // Highlight stroke for featured points
-      if (isHighlighted) {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        // Highlight stroke for featured points
+        if (isHighlighted && finalOpacity > 0.5) {
+          ctx.globalAlpha = finalOpacity;
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
       }
     });
 
@@ -455,56 +478,32 @@
     const scrollTop = container.scrollTop;
     const containerHeight = container.clientHeight;
     
-    console.log('Checking active section - scrollTop:', scrollTop);
-    
-    // Always query sections directly from DOM for reliability
+    // Query sections directly from DOM
     const domSections = container.querySelectorAll('.text-section');
     const sectionsToCheck = Array.from(domSections);
-    console.log('Found sections via DOM query:', sectionsToCheck.length);
     
-    console.log('Sections to check:', sectionsToCheck.map((s, i) => ({ index: i, exists: !!s, tagName: s?.tagName })));
-    
-    // Simple approach: find which section's top is closest to being in view
+    // Find which section's center is closest to viewport center
     let activeSection = 0;
     let minDistance = Infinity;
-    let sectionsFound = 0;
     
     sectionsToCheck.forEach((section, index) => {
-      console.log(`Checking section ${index}:`, section, 'exists:', !!section, 'type:', typeof section);
-      
       if (section) {
-        sectionsFound++;
         const rect = section.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         
-        console.log(`Section ${index} rects:`, { 
-          section: { top: rect.top, height: rect.height }, 
-          container: { top: containerRect.top, height: containerRect.height }
-        });
-        
-        // Calculate absolute position in the scrollable area
         const sectionTop = rect.top - containerRect.top + scrollTop;
         const sectionCenter = sectionTop + rect.height / 2;
         const viewportCenter = scrollTop + containerHeight / 2;
-        
-        // Distance from section center to viewport center
         const distance = Math.abs(sectionCenter - viewportCenter);
-        
-        console.log(`Section ${index}: top=${sectionTop.toFixed(0)}, center=${sectionCenter.toFixed(0)}, distance=${distance.toFixed(0)}`);
         
         if (distance < minDistance) {
           minDistance = distance;
           activeSection = index;
         }
-      } else {
-        console.log(`Section ${index}: null/undefined`);
       }
     });
     
-    console.log(`Found ${sectionsFound} valid sections. Closest section:`, activeSection, 'distance:', minDistance === Infinity ? 'Infinity' : minDistance.toFixed(0));
-    
     if (activeSection !== currentStateIndex && minDistance !== Infinity) {
-      console.log('Transitioning from', currentStateIndex, 'to', activeSection);
       transitionToState(activeSection);
     }
   }
@@ -569,23 +568,6 @@
           class="overlay-svg"
         ></svg>
         
-        <!-- Debug controls -->
-        <div class="debug-controls">
-          <p>Current State: {currentStateIndex} - {scrollStates[currentStateIndex]?.id}</p>
-          <p>Is Transitioning: {isTransitioning}</p>
-          <p>Text Sections: {textSections.filter(el => el).length} / {textSections.length}</p>
-          <p>Observer: {intersectionObserver ? 'Active' : 'Inactive'}</p>
-          <div>
-            {#each scrollStates as state, i}
-              <button on:click={() => transitionToState(i)} class:active={i === currentStateIndex}>
-                {i}: {state.id}
-              </button>
-            {/each}
-          </div>
-          <button on:click={() => console.log('Text sections:', textSections)}>
-            Log Sections
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -750,27 +732,5 @@
     }
   }
 
-  .debug-controls {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border: 1px solid #ccc;
-    font-size: 12px;
-  }
-
-  .debug-controls button {
-    margin: 2px;
-    padding: 4px 8px;
-    border: 1px solid #ccc;
-    background: white;
-    cursor: pointer;
-  }
-
-  .debug-controls button.active {
-    background: #007bff;
-    color: white;
-  }
 
 </style>
