@@ -598,8 +598,12 @@
       }
       
       const isHighlighted = isGroupHighlighted || isIndividualHighlighted;
-      let radius = isHighlighted ? (isIndividualHighlighted ? 6 : 4) : 2;
-      let baseOpacity = isHighlighted ? 1 : 0.7;
+      
+      // Calculate radius based on household weight (area proportional to weight)
+      const weight = d['Household weight'] || 1;
+      const baseRadius = Math.sqrt(weight / Math.PI) * 0.02; // Much smaller scale factor
+      let radius = isHighlighted ? Math.max(baseRadius * 1.5, isIndividualHighlighted ? 6 : 4) : Math.max(baseRadius, 1.5);
+      let baseOpacity = isHighlighted ? 1 : 0.65;
       
       // Apply animation effects if this household is being animated
       const animationState = animatedHouseholds.get(d.id);
@@ -610,7 +614,7 @@
       
       // Fade other points during individual view
       if (currentState?.viewType === 'individual' && !isIndividualHighlighted) {
-        baseOpacity *= 0.2; // Make non-selected households very faint
+        baseOpacity *= 0.15; // Make non-selected households very faint
       }
       
       const finalOpacity = baseOpacity * fadeOpacity;
@@ -926,7 +930,7 @@
       const dy = clickY - point.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance <= point.radius + maxClickDistance && distance < minDistance) {
+      if (distance <= Math.max(point.radius, 4) + maxClickDistance && distance < minDistance) {
         minDistance = distance;
         closestPoint = point;
       }
