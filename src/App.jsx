@@ -5,9 +5,13 @@ const App = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [axisProgress, setAxisProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const svgRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const axisFrameRef = useRef(null);
+  const activeSectionRef = useRef(null);
+  const prevShowTooltipRef = useRef(true);
 
   // Define the sections with their income thresholds and messages
   const thresholds = [70000, 120000, 240000, 350000, 500000, 1000000, 2000000, 3000000, 5000000, 7000000];
@@ -61,15 +65,51 @@ const App = () => {
     loadData();
   }, []);
 
+  // Trigger independent axis animation when crossing the tooltip threshold
+  useEffect(() => {
+    const sectionDuration = 1 / sections.length;
+    const currentSectionIndex = Math.min(Math.floor(scrollProgress / sectionDuration), sections.length - 1);
+    const sectionProgress = (scrollProgress % sectionDuration) / sectionDuration;
+    const showTooltip = sectionProgress < 0.3;
+
+    if (!showTooltip && (prevShowTooltipRef.current || activeSectionRef.current !== currentSectionIndex)) {
+      activeSectionRef.current = currentSectionIndex;
+      const start = performance.now();
+      const duration = 3000;
+
+      if (axisFrameRef.current) cancelAnimationFrame(axisFrameRef.current);
+
+      const animate = (now) => {
+        const t = Math.min((now - start) / duration, 1);
+        setAxisProgress(t);
+        if (t < 1) {
+          axisFrameRef.current = requestAnimationFrame(animate);
+        } else {
+          axisFrameRef.current = null;
+        }
+      };
+      axisFrameRef.current = requestAnimationFrame(animate);
+    } else if (showTooltip && !prevShowTooltipRef.current) {
+      if (axisFrameRef.current) {
+        cancelAnimationFrame(axisFrameRef.current);
+        axisFrameRef.current = null;
+      }
+      setAxisProgress(0);
+      activeSectionRef.current = null;
+    }
+
+    prevShowTooltipRef.current = showTooltip;
+  }, [scrollProgress, sections.length]);
+
   // Clear selected point when section changes
   useEffect(() => {
-    const scrollState = getScrollState(scrollProgress);
+    const scrollState = getScrollState(scrollProgress, axisProgress);
     
     // Clear selection when moving to a new section or during axis animation
     if (selectedPoint && !scrollState.showTooltip) {
       setSelectedPoint(null);
     }
-  }, [scrollProgress]);
+  }, [scrollProgress, axisProgress]);
 
 
   // Handle scroll events
@@ -103,15 +143,15 @@ const App = () => {
   }, []);
 
   // Calculate current state based on scroll
-  const getScrollState = (progress) => {
+  const getScrollState = (progress, axisProgressVal = axisProgress) => {
     const sectionDuration = 1 / sections.length;
     const currentSectionIndex = Math.min(Math.floor(progress / sectionDuration), sections.length - 1);
     const sectionProgress = (progress % sectionDuration) / sectionDuration;
-    
-    // First 50% of each section: show tooltip
-    // Last 50%: animate axis
-    const showTooltip = sectionProgress < 0.5;
-    const axisAnimationProgress = showTooltip ? 0 : (sectionProgress - 0.5) / 0.5;
+
+    // First 30% of each section: show tooltip
+    // Last 70%: animate axis
+    const showTooltip = sectionProgress < 0.3;
+    const axisAnimationProgress = showTooltip ? 0 : axisProgressVal;
     
     let currentDataSection = currentSectionIndex;
     if (!showTooltip && currentSectionIndex < sections.length - 1) {
@@ -187,7 +227,7 @@ const App = () => {
   const prevSectionRef = useRef(null);
   const yTransitionDone = useRef(false);
   useEffect(() => {
-    prevSectionRef.current = getScrollState(scrollProgress).currentSectionIndex;
+    prevSectionRef.current = getScrollState(scrollProgress, axisProgress).currentSectionIndex;
     if (!data.length || !svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
@@ -201,7 +241,7 @@ const App = () => {
     svg.selectAll('*').remove();
 
     // Get current scroll state
-    const scrollState = getScrollState(scrollProgress);
+    const scrollState = getScrollState(scrollProgress, axisProgress);
     const interpolated = getInterpolatedValues(scrollState.currentDataSection);
 
     // Create scales
@@ -505,7 +545,7 @@ const App = () => {
         .text(currentSection.title);
     }
 
-  }, [data, scrollProgress, selectedPoint]);
+  }, [data, scrollProgress, axisProgress, selectedPoint]);
 
   return (
     <div className="w-full h-screen bg-gray-50 relative">
