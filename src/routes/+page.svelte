@@ -14,6 +14,7 @@
   let currentSectionIndex = 0;
   let renderedPoints = []; // Store positions for hit detection
   let randomHouseholds = {}; // Store random household for each group
+  let animatedNumbers = new Map(); // Store animated number references
 
   const baseViews = [
     {
@@ -152,6 +153,55 @@
       loading = false;
     }
   });
+
+  // Animated number utility functions
+  function createAnimatedNumber(elementId, startValue, endValue, formatter, duration = 800) {
+    // Cancel any existing animation for this element
+    if (animatedNumbers.has(elementId)) {
+      clearInterval(animatedNumbers.get(elementId));
+    }
+    
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const startTime = performance.now();
+    
+    function animate(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Cubic ease-out for smooth animation
+      const eased = 1 - Math.pow(1 - progress, 3);
+      
+      const currentValue = startValue + (endValue - startValue) * eased;
+      element.textContent = formatter(currentValue);
+      
+      if (progress < 1) {
+        const animationId = requestAnimationFrame(animate);
+        animatedNumbers.set(elementId, animationId);
+      } else {
+        animatedNumbers.delete(elementId);
+      }
+    }
+    
+    const animationId = requestAnimationFrame(animate);
+    animatedNumbers.set(elementId, animationId);
+  }
+
+  // Formatting functions
+  function formatCurrency(value) {
+    return '$' + Math.round(value).toLocaleString();
+  }
+
+  function formatPercentage(value) {
+    const sign = value >= 0 ? '+' : '';
+    return sign + value.toFixed(1) + '%';
+  }
+
+  function formatDollarChange(value) {
+    const sign = value >= 0 ? '+' : '';
+    return sign + '$' + Math.abs(Math.round(value)).toLocaleString();
+  }
 
   // Generate prose summary for a household
   function generateHouseholdSummary(household) {
@@ -522,7 +572,7 @@
 
       const g = svg.append('g');
 
-      // X-axis
+      // X-axis with animated labels
       const xAxis = g.append('g')
         .attr('transform', `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale).tickFormat(d => `${d > 0 ? '+' : ''}${d}%`))
@@ -530,13 +580,29 @@
         .style('font-size', '10px')
         .style('color', '#121212');
 
-      // Y-axis  
+      // Animate X-axis labels
+      xAxis.selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .delay((d, i) => i * 50)
+        .duration(400)
+        .style('opacity', 1);
+
+      // Y-axis with animated labels
       const yAxis = g.append('g')
         .attr('transform', `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('$,')(d)))
         .style('font-family', 'Roboto Mono, monospace')
         .style('font-size', '10px')
         .style('color', '#121212');
+
+      // Animate Y-axis labels
+      yAxis.selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .delay((d, i) => i * 100)
+        .duration(500)
+        .style('opacity', 1);
 
       // Style axes lines
       xAxis.select('.domain').style('stroke', '#000000').style('stroke-width', 1);
@@ -573,6 +639,107 @@
   // Reactive statements for rendering
   $: if (data.length && canvasRef && !isTransitioning) {
     renderVisualization();
+  }
+
+  // Reactive statement to animate numbers when household changes
+  let previousHouseholds = {};
+  $: {
+    if (typeof window !== 'undefined') {
+      Object.keys(randomHouseholds).forEach(viewId => {
+        const currentHousehold = randomHouseholds[viewId];
+        const previousHousehold = previousHouseholds[viewId];
+        
+        if (currentHousehold && previousHousehold && currentHousehold.id !== previousHousehold.id) {
+          // Find the section index for this household
+          const sectionIndex = scrollStates.findIndex(state => 
+            state.viewType === 'individual' && 
+            baseViews[Math.floor(scrollStates.indexOf(state) / 2)]?.id === viewId
+          );
+          
+          if (sectionIndex >= 0) {
+            // Animate the numbers with delay for smooth effect
+            setTimeout(() => {
+              createAnimatedNumber(
+                `gross-income-${sectionIndex}`,
+                previousHousehold['Gross Income'],
+                currentHousehold['Gross Income'],
+                formatCurrency,
+                600
+              );
+            }, 100);
+            
+            setTimeout(() => {
+              createAnimatedNumber(
+                `net-change-${sectionIndex}`,
+                previousHousehold['Total Change in Net Income'],
+                currentHousehold['Total Change in Net Income'],
+                formatDollarChange,
+                600
+              );
+            }, 200);
+            
+            setTimeout(() => {
+              createAnimatedNumber(
+                `percent-change-${sectionIndex}`,
+                previousHousehold['Percentage Change in Net Income'],
+                currentHousehold['Percentage Change in Net Income'],
+                formatPercentage,
+                600
+              );
+            }, 300);
+          }
+        }
+      });
+      
+      // Update previous households for next comparison
+      previousHouseholds = { ...randomHouseholds };
+    }
+  }
+
+  // Reactive statement to animate data table numbers when selectedData changes
+  let previousSelectedData = null;
+  $: {
+    if (typeof window !== 'undefined' && selectedData && previousSelectedData) {
+      let index = 0;
+      Object.entries(selectedData).forEach(([key, value]) => {
+        if (key !== 'id' && key !== 'isAnnotated' && key !== 'sectionIndex' && key !== 'isHighlighted' && key !== 'highlightGroup' && key !== 'stateIndex') {
+          if (typeof value === 'number') {
+            const prevValue = previousSelectedData[key];
+            if (typeof prevValue === 'number' && prevValue !== value) {
+              setTimeout(() => {
+                if (key.includes('Income') || key.includes('Taxes') || key.includes('Net Income Change')) {
+                  createAnimatedNumber(
+                    `table-value-${index}`,
+                    prevValue,
+                    value,
+                    (val) => '$' + Math.round(val).toLocaleString(),
+                    400
+                  );
+                } else if (key.includes('Percentage')) {
+                  createAnimatedNumber(
+                    `table-value-${index}`,
+                    prevValue,
+                    value,
+                    (val) => (val > 0 ? '+' : '') + val.toFixed(2) + '%',
+                    400
+                  );
+                } else {
+                  createAnimatedNumber(
+                    `table-value-${index}`,
+                    prevValue,
+                    value,
+                    (val) => Math.round(val).toLocaleString(),
+                    400
+                  );
+                }
+              }, index * 50);
+            }
+          }
+          index++;
+        }
+      });
+    }
+    previousSelectedData = selectedData ? { ...selectedData } : null;
   }
 
   // Initialize text sections and intersection observer
@@ -731,18 +898,20 @@
                   <div class="household-details">
                     <div class="detail-item">
                       <span class="label">Gross income:</span>
-                      <span class="value">${randomHousehold['Gross Income'].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      <span class="value" id="gross-income-{i}">
+                        {formatCurrency(randomHousehold['Gross Income'])}
+                      </span>
                     </div>
                     <div class="detail-item">
                       <span class="label">Net income change:</span>
-                      <span class="value ${randomHousehold['Total Change in Net Income'] > 0 ? 'positive' : 'negative'}">
-                        {randomHousehold['Total Change in Net Income'] > 0 ? '+' : ''}${randomHousehold['Total Change in Net Income'].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      <span class="value {randomHousehold['Total Change in Net Income'] > 0 ? 'positive' : 'negative'}" id="net-change-{i}">
+                        {formatDollarChange(randomHousehold['Total Change in Net Income'])}
                       </span>
                     </div>
                     <div class="detail-item">
                       <span class="label">Percentage change:</span>
-                      <span class="value ${randomHousehold['Percentage Change in Net Income'] > 0 ? 'positive' : 'negative'}">
-                        {randomHousehold['Percentage Change in Net Income'] > 0 ? '+' : ''}{randomHousehold['Percentage Change in Net Income'].toFixed(1)}%
+                      <span class="value {randomHousehold['Percentage Change in Net Income'] > 0 ? 'positive' : 'negative'}" id="percent-change-{i}">
+                        {formatPercentage(randomHousehold['Percentage Change in Net Income'])}
                       </span>
                     </div>
                   </div>
@@ -780,18 +949,18 @@
       <h3>Selected Household Data</h3>
       <table class="data-table">
         <tbody>
-          {#each Object.entries(selectedData) as [key, value]}
+          {#each Object.entries(selectedData) as [key, value], index}
             {#if key !== 'id' && key !== 'isAnnotated' && key !== 'sectionIndex' && key !== 'isHighlighted' && key !== 'highlightGroup' && key !== 'stateIndex'}
               <tr>
                 <td class="key-column">{key}</td>
                 <td class="value-column">
                   {#if typeof value === 'number'}
                     {#if key.includes('Income') || key.includes('Taxes') || key.includes('Net Income Change')}
-                      ${value.toLocaleString()}
+                      <span id="table-value-{index}">${value.toLocaleString()}</span>
                     {:else if key.includes('Percentage')}
-                      {value > 0 ? '+' : ''}{value.toFixed(2)}%
+                      <span id="table-value-{index}">{value > 0 ? '+' : ''}{value.toFixed(2)}%</span>
                     {:else}
-                      {value.toLocaleString()}
+                      <span id="table-value-{index}">{value.toLocaleString()}</span>
                     {/if}
                   {:else}
                     {value}

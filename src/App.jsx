@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
 import * as d3 from 'd3';
 
@@ -10,6 +10,7 @@ const App = () => {
   const [randomHouseholds, setRandomHouseholds] = useState({});
   const svgRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const animatedNumbersRef = useRef(new Map());
 
   // BASIC DEBUG
   console.log('APP COMPONENT RENDERING');
@@ -26,6 +27,35 @@ const App = () => {
     title: `Annotation ${i + 1}`,
     annotationTarget: { income: threshold * 0.5, percentChange: 0 }
   }));
+
+  // Animated number utility function
+  const createAnimatedNumber = useCallback((element, startValue, endValue, formatter, duration = 800) => {
+    const key = `${element.attr('id') || Math.random()}`;
+    
+    // Cancel any existing animation for this element
+    if (animatedNumbersRef.current.has(key)) {
+      animatedNumbersRef.current.get(key).interrupt();
+    }
+    
+    const interpolator = d3.interpolate(startValue, endValue);
+    const transition = d3.transition().duration(duration).ease(d3.easeCubicOut);
+    
+    const animation = transition.tween('text', () => {
+      return (t) => {
+        const value = interpolator(t);
+        element.text(formatter(value));
+      };
+    });
+    
+    animatedNumbersRef.current.set(key, animation);
+    return animation;
+  }, []);
+
+  // Enhanced formatting functions with animation support
+  const formatCurrency = useCallback((value) => d3.format('$,.0f')(value), []);
+  const formatPercentage = useCallback((value) => (value >= 0 ? '+' : '') + d3.format('.1%')(value / 100), []);
+  const formatDollarChange = useCallback((value) => (value >= 0 ? '+' : '') + d3.format('$,.0f')(Math.abs(value)), []);
+  const formatInteger = useCallback((value) => Math.round(value), []);
 
   // Load and process the CSV data
   useEffect(() => {
@@ -97,8 +127,8 @@ const App = () => {
     }
   }, [scrollProgress]);
 
-  // Generate prose summary for a household
-  const generateHouseholdSummary = (household) => {
+  // Generate prose summary for a household with animated numbers
+  const generateHouseholdSummary = (household, previousHousehold = null) => {
     if (!household) return '';
     
     const income = household['Gross Income'];
@@ -125,11 +155,19 @@ const App = () => {
     
     const gainOrLoss = changeInNetIncome > 0 ? 'gains' : 'loses';
     
-    return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. 
-    
-    Under the baseline tax system, this household has a gross income of ${d3.format('$,.0f')(income)} and a net income of ${d3.format('$,.0f')(baselineNetIncome)}.
-    
-    After the proposed tax reforms, this household ${gainOrLoss} ${d3.format('$,.0f')(Math.abs(changeInNetIncome))} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
+    return {
+      staticText: `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. 
+      
+      Under the baseline tax system, this household has a gross income of `,
+      income: income,
+      midText: ` and a net income of `,
+      baselineNetIncome: baselineNetIncome,
+      endText: `.
+      
+      After the proposed tax reforms, this household ${gainOrLoss} `,
+      changeInNetIncome: Math.abs(changeInNetIncome),
+      finalText: ` annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`
+    };
   };
 
   // Handle scroll events
@@ -352,23 +390,40 @@ const App = () => {
     const xAxisG = g.append('g')
       .attr('transform', `translate(0,${plotHeight})`);
 
-    // X-axis shrinks fluidly via scroll-driven transition
+    // X-axis with animated numbers
     xAxisG.transition()
       .duration(100)
       .ease(d3.easeQuadOut)
-      .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
+      .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`))
+      .selectAll('text')
+      .style('opacity', 0)
+      .transition()
+      .delay(50)
+      .duration(300)
+      .style('opacity', 1);
 
     const yAxisG = g.append('g');
-    // Y-axis stretch transition only upon first crossing from section 0 → 1
+    // Y-axis with animated numbers
     if (prevSectionRef.current === 0 && scrollState.currentSectionIndex === 1 && !yTransitionDone.current) {
       yTransitionDone.current = true;
       d3.select(yAxisG.node())
         .transition()
         .duration(2000)
         .ease(d3.easeQuadIn)
-        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
+        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`))
+        .selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .delay(500)
+        .duration(800)
+        .style('opacity', 1);
     } else {
-      yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
+      yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`))
+        .selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .duration(400)
+        .style('opacity', 1);
     }
 
     // Add vertical line at x=0
@@ -466,14 +521,25 @@ const App = () => {
 
     points.exit().remove();
 
-    // Add title
-    svg.append('text')
+    // Add title with animated statistics
+    const titleElement = svg.append('text')
       .attr('x', width / 2)
       .attr('y', 20)
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
       .style('font-weight', 'bold')
-      .text(`Gained Money ${interpolated.gainedPercent}%  Lost Money ${interpolated.lostPercent}%  No Change ${interpolated.noChangePercent}%`);
+      .attr('id', 'title-stats');
+
+    // Get previous values for animation
+    const prevStats = titleElement.datum() || { gainedPercent: 0, lostPercent: 0, noChangePercent: 0 };
+    
+    // Store current values for next animation
+    titleElement.datum(interpolated);
+    
+    // Animate the title text
+    const titleFormatter = (data) => `Gained Money ${formatInteger(data.gainedPercent)}%  Lost Money ${formatInteger(data.lostPercent)}%  No Change ${formatInteger(data.noChangePercent)}%`;
+    
+    createAnimatedNumber(titleElement, prevStats, interpolated, titleFormatter, 600);
 
     // BASIC DEBUG TEXT - THIS SHOULD ALWAYS SHOW
     svg.append('text')
@@ -553,31 +619,53 @@ const App = () => {
             .style('opacity', 0.5);
         }
 
-        // Tooltip content
-        const income = d3.format('$,.0f')(pointToShow['Gross Income']);
-        const changeValue = pointToShow['Percentage Change in Net Income'];
-        const change = (changeValue >= 0 ? '+' : '') + d3.format('.1%')(changeValue / 100);
-        const dollarValue = pointToShow['Total Change in Net Income'];
-        const dollarChange = (dollarValue >= 0 ? '+' : '') + d3.format('$,.0f')(Math.abs(dollarValue));
-        
-        tooltipG.append('text')
+        // Tooltip content with animated numbers
+        const incomeElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 20)
           .style('font-size', '14px')
           .style('font-weight', 'bold')
-          .text(`Household Income: ${income}`);
+          .attr('id', 'tooltip-income');
         
-        tooltipG.append('text')
+        const changeElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 40)
           .style('font-size', '13px')
-          .text(`Net Income Change: ${change}`);
+          .attr('id', 'tooltip-change');
         
-        tooltipG.append('text')
+        const dollarElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 60)
           .style('font-size', '13px')
-          .text(`Dollar Impact: ${dollarChange}`);
+          .attr('id', 'tooltip-dollar');
+
+        // Get previous values for animation (from the element's data)
+        const prevTooltipData = incomeElement.datum() || { 
+          income: 0, 
+          changeValue: 0, 
+          dollarValue: 0 
+        };
+        
+        const currentTooltipData = {
+          income: pointToShow['Gross Income'],
+          changeValue: pointToShow['Percentage Change in Net Income'],
+          dollarValue: pointToShow['Total Change in Net Income']
+        };
+
+        // Store current values for next animation
+        incomeElement.datum(currentTooltipData);
+        changeElement.datum(currentTooltipData);
+        dollarElement.datum(currentTooltipData);
+        
+        // Animate tooltip numbers
+        createAnimatedNumber(incomeElement, prevTooltipData.income, currentTooltipData.income, 
+          (val) => `Household Income: ${formatCurrency(val)}`, 500);
+        
+        createAnimatedNumber(changeElement, prevTooltipData.changeValue, currentTooltipData.changeValue, 
+          (val) => `Net Income Change: ${formatPercentage(val)}`, 500);
+        
+        createAnimatedNumber(dollarElement, prevTooltipData.dollarValue, currentTooltipData.dollarValue, 
+          (val) => `Dollar Impact: ${formatDollarChange(val)}`, 500);
         
         tooltipG.append('text')
           .attr('x', 10)
@@ -633,10 +721,8 @@ const App = () => {
           .style('stroke-width', 3)
           .style('opacity', 0.8);
 
-        // Add prose summary text
+        // Add prose summary text with animated numbers
         const summary = generateHouseholdSummary(randomHousehold);
-        const words = summary.split(' ');
-        const wordsPerLine = 8;
         const lineHeight = 16;
         let currentY = 25;
         
@@ -650,18 +736,82 @@ const App = () => {
         
         currentY += 25;
         
-        for (let i = 0; i < words.length; i += wordsPerLine) {
-          const line = words.slice(i, i + wordsPerLine).join(' ');
-          summaryG.append('text')
-            .attr('x', 15)
-            .attr('y', currentY)
-            .style('font-size', '12px')
-            .style('fill', '#4b5563')
-            .text(line);
-          currentY += lineHeight;
-          
-          if (currentY > summaryHeight - 10) break;
-        }
+        // Static text part 1
+        const staticText1 = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.staticText);
+        
+        currentY += lineHeight * 3;
+        
+        // Animated income value
+        const incomeElement = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#059669')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-income');
+        
+        const prevIncome = incomeElement.datum() || 0;
+        incomeElement.datum(summary.income);
+        createAnimatedNumber(incomeElement, prevIncome, summary.income, formatCurrency, 600);
+        
+        // Middle text
+        summaryG.append('text')
+          .attr('x', 120)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.midText);
+        
+        // Animated baseline income
+        const baselineElement = summaryG.append('text')
+          .attr('x', 220)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#059669')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-baseline');
+        
+        const prevBaseline = baselineElement.datum() || 0;
+        baselineElement.datum(summary.baselineNetIncome);
+        createAnimatedNumber(baselineElement, prevBaseline, summary.baselineNetIncome, formatCurrency, 600);
+        
+        currentY += lineHeight * 2;
+        
+        // End text part 1
+        summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.endText);
+        
+        currentY += lineHeight;
+        
+        // Animated change amount
+        const changeElement = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', summary.changeInNetIncome > 0 ? '#059669' : '#dc2626')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-change');
+        
+        const prevChange = changeElement.datum() || 0;
+        changeElement.datum(summary.changeInNetIncome);
+        createAnimatedNumber(changeElement, prevChange, summary.changeInNetIncome, formatCurrency, 600);
+        
+        // Final text
+        summaryG.append('text')
+          .attr('x', 80)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.finalText);
       }
     }
 
