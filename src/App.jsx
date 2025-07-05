@@ -103,13 +103,18 @@ const App = () => {
   }, [scrollProgress, sections.length]);
 
   // Clear selected point when section changes
+  const lastSectionRef = useRef(null);
   useEffect(() => {
     const scrollState = getScrollState(scrollProgress, axisProgress);
-    
-    // Clear selection when moving to a new section or during axis animation
-    if (selectedPoint && !scrollState.showTooltip) {
-      setSelectedPoint(null);
+    const currentIndex = scrollState.currentSectionIndex;
+
+    if (selectedPoint) {
+      if (!scrollState.showTooltip || lastSectionRef.current !== currentIndex) {
+        setSelectedPoint(null);
+      }
     }
+
+    lastSectionRef.current = currentIndex;
   }, [scrollProgress, axisProgress]);
 
 
@@ -228,8 +233,10 @@ const App = () => {
   const prevSectionRef = useRef(null);
   const yTransitionDone = useRef(false);
   useEffect(() => {
-    prevSectionRef.current = getScrollState(scrollProgress, axisProgress).currentSectionIndex;
     if (!data.length || !svgRef.current) return;
+
+    const scrollState = getScrollState(scrollProgress, axisProgress);
+    const currentSectionIndex = scrollState.currentSectionIndex;
 
     const svg = d3.select(svgRef.current);
     const width = 1200;
@@ -241,8 +248,6 @@ const App = () => {
     // Clear previous content
     svg.selectAll('*').remove();
 
-    // Get current scroll state
-    const scrollState = getScrollState(scrollProgress, axisProgress);
     const interpolated = getInterpolatedValues(scrollState.currentDataSection);
 
     // Create scales
@@ -332,7 +337,7 @@ const App = () => {
 
     const yAxisG = g.append('g');
     // Y-axis stretch transition only upon first crossing from section 0 → 1
-    if (prevSectionRef.current === 0 && scrollState.currentSectionIndex === 1 && !yTransitionDone.current) {
+    if (prevSectionRef.current === 0 && currentSectionIndex === 1 && !yTransitionDone.current) {
       yTransitionDone.current = true;
       d3.select(yAxisG.node())
         .transition()
@@ -531,6 +536,9 @@ const App = () => {
         .style('fill', '#4b5563')
         .text(currentSection.title);
     }
+
+    // update previous section tracker
+    prevSectionRef.current = currentSectionIndex;
 
   }, [data, scrollProgress, axisProgress, selectedPoint]);
 
