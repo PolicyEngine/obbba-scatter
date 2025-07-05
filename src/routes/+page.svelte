@@ -234,6 +234,42 @@
     return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} and a net income of $${baselineNetIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
   }
 
+  // Get provision breakdown for a household
+  function getProvisionBreakdown(household) {
+    if (!household) return [];
+    
+    const provisions = [
+      { name: 'Tax rate reform', key: 'Change in net income after tax rate reform' },
+      { name: 'Standard deduction reform', key: 'Change in net income after standard deduction reform' },
+      { name: 'Exemption reform', key: 'Change in net income after exemption reform' },
+      { name: 'Child Tax Credit reform', key: 'Change in net income after CTC reform' },
+      { name: 'QBID reform', key: 'Change in net income after QBID reform' },
+      { name: 'AMT reform', key: 'Change in net income after AMT reform' },
+      { name: 'Miscellaneous reform', key: 'Change in net income after miscellaneous reform' },
+      { name: 'Other itemized deductions reform', key: 'Change in net income after other itemized deductions reform' },
+      { name: 'Limitation on itemized deductions reform', key: 'Change in net income after limitation on itemized deductions reform' },
+      { name: 'Estate tax reform', key: 'Change in net income after estate tax reform' },
+      { name: 'Senior deduction reform', key: 'Change in net income after senior deduction reform' },
+      { name: 'Tip income exempt', key: 'Change in net income after tip income exempt' },
+      { name: 'Overtime income exempt', key: 'Change in net income after overtime income exempt' },
+      { name: 'Auto loan interest ALD', key: 'Change in net income after auto loan interest ALD' },
+      { name: 'SALT reform', key: 'Change in net income after SALT reform' },
+      { name: 'CDCC reform', key: 'Change in net income after CDCC reform' },
+      { name: 'ACA enhanced subsidies reform', key: 'Change in net income after ACA enhanced subsidies reform' },
+      { name: 'SNAP takeup reform', key: 'Change in net income after SNAP takeup reform' },
+      { name: 'ACA takeup reform', key: 'Change in net income after ACA takeup reform' },
+      { name: 'Medicaid takeup reform', key: 'Change in net income after Medicaid takeup reform' }
+    ];
+    
+    return provisions
+      .map(provision => ({
+        name: provision.name,
+        value: household[provision.key] || 0
+      }))
+      .filter(provision => Math.abs(provision.value) > 0.01) // Only show provisions with meaningful impact
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // Sort by absolute impact
+  }
+
   // Scroll handling with intersection observer pattern
   let textSections = [];
   let currentStateIndex = 0;
@@ -890,6 +926,7 @@
               {@const baseViewId = baseViews[Math.floor(i / 2)]?.id}
               {@const randomHousehold = randomHouseholds[baseViewId]}
               {#if randomHousehold}
+                {@const provisionBreakdown = getProvisionBreakdown(randomHousehold)}
                 <div class="household-profile">
                   <h3>Individual household profile</h3>
                   <div class="household-summary">
@@ -915,6 +952,22 @@
                       </span>
                     </div>
                   </div>
+                  
+                  {#if provisionBreakdown.length > 0}
+                    <div class="provision-breakdown">
+                      <h4>Breakdown by provision</h4>
+                      <div class="provision-list">
+                        {#each provisionBreakdown as provision}
+                          <div class="provision-item">
+                            <span class="provision-name">{provision.name}:</span>
+                            <span class="provision-value {provision.value > 0 ? 'positive' : 'negative'}">
+                              {formatDollarChange(provision.value)}
+                            </span>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             {/if}
@@ -1165,6 +1218,56 @@
   }
 
   .detail-item .value.negative {
+    color: var(--nyt-scatter-negative);
+  }
+
+  .provision-breakdown {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--nyt-border);
+  }
+
+  .provision-breakdown h4 {
+    font-family: var(--nyt-font-serif);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--nyt-text-primary);
+    margin: 0 0 1rem 0;
+  }
+
+  .provision-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .provision-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.3rem 0;
+    font-size: 11px;
+  }
+
+  .provision-name {
+    font-family: var(--nyt-font-mono);
+    color: var(--nyt-text-secondary);
+    font-weight: 400;
+    flex: 1;
+    margin-right: 0.5rem;
+  }
+
+  .provision-value {
+    font-family: var(--nyt-font-mono);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .provision-value.positive {
+    color: var(--nyt-scatter-positive);
+  }
+
+  .provision-value.negative {
     color: var(--nyt-scatter-negative);
   }
 
