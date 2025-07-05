@@ -8,6 +8,7 @@ const App = () => {
   const [axisProgress, setAxisProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
   const svgRef = useRef(null);
+  const canvasRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const axisFrameRef = useRef(null);
   const activeSectionRef = useRef(null);
@@ -367,60 +368,54 @@ const App = () => {
         .style('stroke-width', 2);
     }
 
-    // Add points
-    const pointsGroup = g.append('g')
-      .attr('clip-path', 'url(#plot-clip)');
+    // Draw points using canvas for better performance
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0, 0, width, height);
 
     const visibleData = data.filter(d => d.income <= interpolated.threshold * 1.2);
 
-    const points = pointsGroup.selectAll('.point')
-      .data(visibleData, d => d.id);
+    visibleData.forEach(d => {
+      const r = d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2;
+      const x = margin.left + xScale(d.pct_change);
+      const y = margin.top + distortY(d.income);
 
-    points.enter()
-      .append('circle')
-      .attr('class', 'point')
-      .attr('r', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2)
-      .style('fill', d => d.pct_change > 0 ? '#10b981' : '#ef4444')
-      .style('stroke', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 'white' : 'none')
-      .style('stroke-width', 2)
-      .style('cursor', 'pointer')
-      .merge(points)
-      .attr('cx', d => xScale(d.pct_change))
-      .attr('cy', d => distortY(d.income))
-      .style('opacity', d => {
-        if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) return 1;
-        const income = d.income;
-        if (income > interpolated.threshold) return 0.1;
+      let opacity = 0.6;
+      if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) {
+        opacity = 1;
+      } else if (d.income > interpolated.threshold) {
+        opacity = 0.1;
+      } else {
         const fadeZone = interpolated.threshold * 0.2;
-        if (income > interpolated.threshold - fadeZone) {
-          return 0.6 * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
+        if (d.income > interpolated.threshold - fadeZone) {
+          opacity = 0.6 * (1 - (d.income - (interpolated.threshold - fadeZone)) / fadeZone);
         }
-        return 0.6;
-      })
-      .on('click', function(event, d) {
-        event.stopPropagation();
-        // Only allow selection if tooltip is visible
-        if (scrollState.showTooltip) {
-          // Force update by creating new object reference
-          setSelectedPoint({ ...d });
-        }
-      })
-      .on('mouseover', function(event, d) {
-        d3.select(this)
-          .transition()
-          .duration(1000)
-          .ease(d3.easeExpOut)
-          .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 6 : 4);
-      })
-      .on('mouseout', function(event, d) {
-        d3.select(this)
-          .transition()
-          .duration(1000)
-          .ease(d3.easeExpOut)
-          .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2);
-      });
+      }
 
-    points.exit().remove();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = d.pct_change > 0 ? '#10b981' : '#ef4444';
+      ctx.globalAlpha = opacity;
+      ctx.fill();
+      if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'white';
+        ctx.stroke();
+      }
+    });
+
+    ctx.globalAlpha = 1;
+
+    if (selectedPoint) {
+      const x = margin.left + xScale(selectedPoint.pct_change);
+      const y = margin.top + distortY(selectedPoint.income);
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = selectedPoint.pct_change > 0 ? '#10b981' : '#ef4444';
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.5;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // Add title
     svg.append('text')
@@ -488,17 +483,7 @@ const App = () => {
           .style('stroke-width', 1)
           .style('stroke-dasharray', '2,2');
 
-        // Highlight the selected point
-        if (selectedPoint) {
-          g.append('circle')
-            .attr('cx', x)
-            .attr('cy', y)
-            .attr('r', 8)
-            .style('fill', 'none')
-            .style('stroke', pointToShow.pct_change > 0 ? '#10b981' : '#ef4444')
-            .style('stroke-width', 2)
-            .style('opacity', 0.5);
-        }
+
 
         // Tooltip content
         const income = d3.format('$,.0f')(pointToShow.income);
@@ -549,6 +534,70 @@ const App = () => {
 
   }, [data, scrollProgress, axisProgress, selectedPoint]);
 
+  // Canvas interaction for selecting points
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const width = 1200;
+    const height = 600;
+    const margin = { top: 50, right: 100, bottom: 50, left: 100 };
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+
+    const handleClick = (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const xPos = event.clientX - rect.left - margin.left;
+      const yPos = event.clientY - rect.top - margin.top;
+
+      const scrollState = getScrollState(scrollProgress, axisProgress);
+      const interpolated = getInterpolatedValues(scrollState.currentDataSection);
+
+      const xScale = d3.scaleLinear()
+        .domain([interpolated.xMin, interpolated.xMax])
+        .range([0, plotWidth]);
+      const yScale = d3.scaleLinear()
+        .domain([0, interpolated.yMax])
+        .range([plotHeight, 0]);
+
+      const distortY = (y) => {
+        if (scrollState.axisAnimationProgress > 0 && interpolated.t > 0) {
+          const normalizedY = y / interpolated.yMax;
+          const bendFactor = Math.sin(interpolated.t * Math.PI) * 0.3;
+          const distortion = Math.pow(normalizedY, 1 + bendFactor);
+          return yScale(distortion * interpolated.yMax);
+        }
+        return yScale(y);
+      };
+
+      if (!scrollState.showTooltip) {
+        if (selectedPoint) setSelectedPoint(null);
+        return;
+      }
+
+      const visibleData = data.filter(d => d.income <= interpolated.threshold * 1.2);
+      let nearest = null;
+      let minDist = 10;
+      visibleData.forEach(d => {
+        const dx = xScale(d.pct_change) - xPos;
+        const dy = distortY(d.income) - yPos;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = d;
+        }
+      });
+
+      if (nearest) {
+        setSelectedPoint({ ...nearest });
+      } else if (selectedPoint) {
+        setSelectedPoint(null);
+      }
+    };
+
+    canvas.addEventListener('click', handleClick);
+    return () => canvas.removeEventListener('click', handleClick);
+  }, [data, scrollProgress, axisProgress, selectedPoint]);
+
   return (
     <div className="w-full h-screen bg-gray-50 relative">
       {loading && (
@@ -584,12 +633,20 @@ const App = () => {
         <div style={{ height: `${sections.length * 150}vh` }} className="relative">
           {/* Fixed visualization container */}
           <div className="sticky top-0 w-full h-screen flex items-center justify-center">
-            <svg
-              ref={svgRef}
-              viewBox="0 0 1200 600"
-              preserveAspectRatio="xMidYMid meet"
-              className="w-full h-screen bg-white rounded-lg shadow-lg"
-            />
+            <div className="relative w-full h-screen">
+              <canvas
+                ref={canvasRef}
+                width={1200}
+                height={600}
+                className="absolute top-0 left-0 w-full h-full"
+              />
+              <svg
+                ref={svgRef}
+                viewBox="0 0 1200 600"
+                preserveAspectRatio="xMidYMid meet"
+                className="absolute top-0 left-0 w-full h-full bg-white rounded-lg shadow-lg"
+              />
+            </div>
           </div>
           
         </div>
