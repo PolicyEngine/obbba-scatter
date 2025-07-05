@@ -241,12 +241,26 @@
     const fromState = scrollStates[currentStateIndex];
     const toState = scrollStates[newIndex];
     
+    // Pick new random household when transitioning to individual view
+    if (toState.viewType === 'individual') {
+      const baseViewId = baseViews[Math.floor(newIndex / 2)]?.id;
+      const filteredData = data.filter(baseViews[Math.floor(newIndex / 2)]?.view?.filter || (() => true));
+      if (filteredData.length > 0) {
+        const randomIndex = Math.floor(Math.random() * filteredData.length);
+        randomHouseholds[baseViewId] = filteredData[randomIndex];
+        // Trigger reactivity
+        randomHouseholds = { ...randomHouseholds };
+      }
+    }
+    
+    // Update text section immediately for instant feedback
+    currentStateIndex = newIndex;
+    
     animateScales({
       from: fromState.view,
       to: toState.view,
       duration: 1200,
       onComplete: () => {
-        currentStateIndex = newIndex;
         isTransitioning = false;
       }
     });
