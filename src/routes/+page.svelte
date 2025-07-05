@@ -217,8 +217,21 @@
 
     const canvas = canvasRef;
     const ctx = canvas.getContext('2d', { alpha: false });
-    const width = canvas.width;
-    const height = canvas.height;
+    
+    // Set up high-DPI canvas
+    const devicePixelRatio = window.devicePixelRatio || 1;
+    const displayWidth = 800;
+    const displayHeight = 600;
+    
+    canvas.width = displayWidth * devicePixelRatio;
+    canvas.height = displayHeight * devicePixelRatio;
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    
+    const width = displayWidth;
+    const height = displayHeight;
     const margin = { top: 80, right: 120, bottom: 100, left: 100 };
 
     // Determine current view and interpolation
