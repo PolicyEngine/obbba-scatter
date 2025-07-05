@@ -634,17 +634,17 @@ const App = () => {
           {/* Fixed visualization container */}
           <div className="sticky top-0 w-full h-screen flex items-center justify-center">
             <div className="relative w-full h-screen">
-              <svg
-                ref={svgRef}
-                viewBox="0 0 1200 600"
-                preserveAspectRatio="xMidYMid meet"
-                className="absolute top-0 left-0 w-full h-full"
-              />
               <canvas
                 ref={canvasRef}
                 width={1200}
                 height={600}
                 className="absolute top-0 left-0 w-full h-full bg-white rounded-lg shadow-lg"
+              />
+              <svg
+                ref={svgRef}
+                viewBox="0 0 1200 600"
+                preserveAspectRatio="xMidYMid meet"
+                className="absolute top-0 left-0 w-full h-full pointer-events-none"
               />
             </div>
           </div>
