@@ -554,8 +554,14 @@ const App = () => {
 
     const handleClick = (event) => {
       const rect = canvas.getBoundingClientRect();
-      const xPos = event.clientX - rect.left - margin.left;
-      const yPos = event.clientY - rect.top - margin.top;
+      // Account for potential scaling between the canvas resolution and its
+      // displayed size in the DOM. This keeps the mouse coordinates in the
+      // same coordinate system used for rendering the points.
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+
+      const xPos = (event.clientX - rect.left) * scaleX - margin.left;
+      const yPos = (event.clientY - rect.top) * scaleY - margin.top;
 
       const scrollState = getScrollState(scrollProgress, axisProgress);
       const interpolated = getInterpolatedValues(scrollState.currentDataSection);
