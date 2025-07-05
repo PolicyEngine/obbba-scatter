@@ -7,6 +7,7 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [randomHouseholds, setRandomHouseholds] = useState({});
   const svgRef = useRef(null);
   const scrollContainerRef = useRef(null);
 
@@ -56,7 +57,18 @@ const App = () => {
           }
         });
 
+        // Select random households for each section
+        const randomHouseholdsMap = {};
+        sections.forEach((section, index) => {
+          const householdsInSection = parsed.filter(d => d['Gross Income'] <= section.threshold);
+          if (householdsInSection.length > 0) {
+            const randomIndex = Math.floor(Math.random() * householdsInSection.length);
+            randomHouseholdsMap[index] = householdsInSection[randomIndex];
+          }
+        });
+
         setData(parsed);
+        setRandomHouseholds(randomHouseholdsMap);
         setLoading(false);
       } catch (error) {
         console.error('Error loading CSV data:', error);
@@ -72,11 +84,45 @@ const App = () => {
     const scrollState = getScrollState(scrollProgress);
     
     // Clear selection when moving to a new section or during axis animation
-    if (selectedPoint && !scrollState.showTooltip) {
+    if (selectedPoint && !scrollState.showGroupView) {
       setSelectedPoint(null);
     }
   }, [scrollProgress]);
 
+  // Generate prose summary for a household
+  const generateHouseholdSummary = (household) => {
+    if (!household) return '';
+    
+    const income = household['Gross Income'];
+    const baselineNetIncome = household['Baseline Net Income'];
+    const changeInNetIncome = household['Total Change in Net Income'];
+    const percentChange = household['Percentage Change in Net Income'];
+    const householdSize = household['Household Size'];
+    const isMarried = household['Is Married'];
+    const numDependents = household['Number of Dependents'];
+    const age = household['Age of Head'];
+    const state = household['State'];
+    
+    const familyStructure = isMarried ? 
+      (numDependents > 0 ? `married couple with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'married couple') :
+      (numDependents > 0 ? `single parent with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'single person');
+    
+    const incomeDescription = income < 50000 ? 'low-income' :
+                            income < 100000 ? 'middle-income' :
+                            income < 500000 ? 'upper-middle-income' : 'high-income';
+    
+    const changeDescription = Math.abs(changeInNetIncome) < 100 ? 'minimal' :
+                            Math.abs(changeInNetIncome) < 1000 ? 'modest' :
+                            Math.abs(changeInNetIncome) < 5000 ? 'significant' : 'substantial';
+    
+    const gainOrLoss = changeInNetIncome > 0 ? 'gains' : 'loses';
+    
+    return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. 
+    
+    Under the baseline tax system, this household has a gross income of ${d3.format('$,.0f')(income)} and a net income of ${d3.format('$,.0f')(baselineNetIncome)}.
+    
+    After the proposed tax reforms, this household ${gainOrLoss} ${d3.format('$,.0f')(Math.abs(changeInNetIncome))} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
+  };
 
   // Handle scroll events
   useEffect(() => {
@@ -103,22 +149,32 @@ const App = () => {
     const currentSectionIndex = Math.min(Math.floor(progress / sectionDuration), sections.length - 1);
     const sectionProgress = (progress % sectionDuration) / sectionDuration;
     
-    // First 70% of each section: show tooltip
-    // Last 30%: animate axis
-    const showTooltip = sectionProgress < 0.7;
-    const axisAnimationProgress = showTooltip ? 0 : (sectionProgress - 0.7) / 0.3;
+    // Split each section into two parts:
+    // First 50% of each section: show group view with tooltip
+    // Next 30%: show individual household view with fade transition
+    // Last 20%: animate axis
+    const showGroupView = sectionProgress < 0.5;
+    const showIndividualView = sectionProgress >= 0.5 && sectionProgress < 0.8;
+    const axisAnimationProgress = sectionProgress >= 0.8 ? (sectionProgress - 0.8) / 0.2 : 0;
+    
+    // Calculate fade opacity for transition between group and individual view
+    const individualTransitionProgress = showIndividualView ? (sectionProgress - 0.5) / 0.3 : 0;
+    const groupFadeOpacity = showIndividualView ? Math.max(0.1, 1 - individualTransitionProgress) : 1;
     
     let currentDataSection = currentSectionIndex;
-    if (!showTooltip && currentSectionIndex < sections.length - 1) {
+    if (axisAnimationProgress > 0 && currentSectionIndex < sections.length - 1) {
       currentDataSection = currentSectionIndex + axisAnimationProgress;
     }
     
     return {
       currentSectionIndex,
-      showTooltip,
+      showGroupView,
+      showIndividualView,
       axisAnimationProgress,
       currentDataSection,
-      sectionProgress
+      sectionProgress,
+      individualTransitionProgress,
+      groupFadeOpacity
     };
   };
 
@@ -343,19 +399,36 @@ const App = () => {
       .attr('cx', d => xScale(d['Percentage Change in Net Income']))
       .attr('cy', d => distortY(d['Gross Income']))
       .style('opacity', d => {
+        // Special highlighting for current section's annotated point
         if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) return 1;
+        
+        // Handle random household highlighting during individual view
+        const randomHousehold = randomHouseholds[scrollState.currentSectionIndex];
+        const isRandomHousehold = randomHousehold && d.id === randomHousehold.id;
+        
+        if (scrollState.showIndividualView && isRandomHousehold) {
+          return 1; // Highlight the random household
+        }
+        
+        // Apply group fade opacity during individual view transition
+        let baseOpacity = 0.6;
+        if (scrollState.showIndividualView && !isRandomHousehold) {
+          baseOpacity *= scrollState.groupFadeOpacity;
+        }
+        
+        // Standard income-based fading
         const income = d['Gross Income'];
         if (income > interpolated.threshold) return 0.1;
         const fadeZone = interpolated.threshold * 0.2;
         if (income > interpolated.threshold - fadeZone) {
-          return 0.6 * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
+          return baseOpacity * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
         }
-        return 0.6;
+        return baseOpacity;
       })
       .on('click', function(event, d) {
         event.stopPropagation();
-        // Only allow selection if tooltip is visible
-        if (scrollState.showTooltip) {
+        // Only allow selection if group view is visible
+        if (scrollState.showGroupView) {
           // Force update by creating new object reference
           setSelectedPoint({ ...d });
         }
@@ -391,8 +464,8 @@ const App = () => {
       }
     });
 
-    // Add tooltip annotation if visible
-    if (scrollState.showTooltip) {
+    // Add tooltip annotation for group view
+    if (scrollState.showGroupView) {
       
       // Use selected point if available, otherwise use default annotated point
       let pointToShow = selectedPoint;
@@ -488,19 +561,88 @@ const App = () => {
       }
     }
 
+    // Add individual household prose summary
+    if (scrollState.showIndividualView) {
+      const randomHousehold = randomHouseholds[scrollState.currentSectionIndex];
+      if (randomHousehold) {
+        const x = xScale(randomHousehold['Percentage Change in Net Income']);
+        const y = distortY(randomHousehold['Gross Income']);
+        
+        // Add prose summary panel
+        const summaryWidth = 400;
+        const summaryHeight = 200;
+        const summaryX = plotWidth - summaryWidth - 20;
+        const summaryY = 20;
+        
+        const summaryG = g.append('g')
+          .attr('transform', `translate(${summaryX}, ${summaryY})`);
+
+        // Summary background
+        summaryG.append('rect')
+          .attr('width', summaryWidth)
+          .attr('height', summaryHeight)
+          .attr('rx', 10)
+          .style('fill', 'rgba(255, 255, 255, 0.95)')
+          .style('stroke', '#e5e7eb')
+          .style('stroke-width', 2)
+          .style('filter', 'drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15))');
+
+        // Highlight the random household
+        g.append('circle')
+          .attr('cx', x)
+          .attr('cy', y)
+          .attr('r', 10)
+          .style('fill', 'none')
+          .style('stroke', randomHousehold['Percentage Change in Net Income'] > 0 ? '#10b981' : '#ef4444')
+          .style('stroke-width', 3)
+          .style('opacity', 0.8);
+
+        // Add prose summary text
+        const summary = generateHouseholdSummary(randomHousehold);
+        const words = summary.split(' ');
+        const wordsPerLine = 8;
+        const lineHeight = 16;
+        let currentY = 25;
+        
+        summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '14px')
+          .style('font-weight', 'bold')
+          .style('fill', '#374151')
+          .text('Individual Household Profile');
+        
+        currentY += 25;
+        
+        for (let i = 0; i < words.length; i += wordsPerLine) {
+          const line = words.slice(i, i + wordsPerLine).join(' ');
+          summaryG.append('text')
+            .attr('x', 15)
+            .attr('y', currentY)
+            .style('font-size', '12px')
+            .style('fill', '#4b5563')
+            .text(line);
+          currentY += lineHeight;
+          
+          if (currentY > summaryHeight - 10) break;
+        }
+      }
+    }
+
     // Add explanatory text at bottom
-    if (scrollState.showTooltip) {
+    if (scrollState.showGroupView || scrollState.showIndividualView) {
       const currentSection = sections[scrollState.currentSectionIndex];
+      const viewType = scrollState.showGroupView ? 'Group Overview' : 'Individual Household';
       svg.append('text')
         .attr('x', width / 2)
         .attr('y', height - 10)
         .attr('text-anchor', 'middle')
         .style('font-size', '14px')
         .style('fill', '#4b5563')
-        .text(currentSection.title);
+        .text(`${currentSection.title} - ${viewType}`);
     }
 
-  }, [data, scrollProgress, selectedPoint]);
+  }, [data, scrollProgress, selectedPoint, randomHouseholds]);
 
   return (
     <div className="w-full h-screen bg-gray-50 relative">
@@ -534,7 +676,7 @@ const App = () => {
         className="w-full h-full overflow-y-scroll"
       >
         {/* Scroll content - creates the scrollable height */}
-        <div style={{ height: `${sections.length * 150}vh` }} className="relative">
+        <div style={{ height: `${sections.length * 200}vh` }} className="relative">
           {/* Fixed visualization container */}
           <div className="sticky top-0 w-full h-screen flex items-center justify-center">
             <svg
