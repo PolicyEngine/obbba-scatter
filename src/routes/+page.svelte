@@ -219,7 +219,7 @@
     const ctx = canvas.getContext('2d', { alpha: false });
     const width = canvas.width;
     const height = canvas.height;
-    const margin = { top: 60, right: 100, bottom: 80, left: 80 };
+    const margin = { top: 80, right: 120, bottom: 100, left: 100 };
 
     // Determine current view and interpolation
     let currentView, targetView, interpolationT;
@@ -655,7 +655,6 @@
 
   .main-canvas {
     background: var(--nyt-background);
-    border: 1px solid var(--nyt-border);
   }
 
   .overlay-svg {
