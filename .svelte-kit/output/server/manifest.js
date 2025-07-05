@@ -6,11 +6,11 @@ function __memo(fn) {
 
 return {
 	appDir: "_app",
-	appPath: "_app",
+	appPath: "obbba-scatter/_app",
 	assets: new Set(["household_tax_income_changes_senate_current_law_baseline.csv"]),
 	mimeTypes: {".csv":"text/csv"},
 	_: {
-		client: {start:"_app/immutable/entry/start.DttewCcu.js",app:"_app/immutable/entry/app.Cct4gyj_.js",imports:["_app/immutable/entry/start.DttewCcu.js","_app/immutable/chunks/gZ-cACRw.js","_app/immutable/chunks/DJJb56M5.js","_app/immutable/chunks/hF6vYYgm.js","_app/immutable/entry/app.Cct4gyj_.js","_app/immutable/chunks/hF6vYYgm.js","_app/immutable/chunks/DJJb56M5.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/D7N969Ix.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.sSqjIpwT.js",app:"_app/immutable/entry/app.drSDwt1k.js",imports:["_app/immutable/entry/start.sSqjIpwT.js","_app/immutable/chunks/lKdqf9M1.js","_app/immutable/chunks/DJJb56M5.js","_app/immutable/chunks/hF6vYYgm.js","_app/immutable/entry/app.drSDwt1k.js","_app/immutable/chunks/hF6vYYgm.js","_app/immutable/chunks/DJJb56M5.js","_app/immutable/chunks/CWj6FrbW.js","_app/immutable/chunks/D7N969Ix.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),

@@ -19,52 +19,52 @@ function _page($$payload, $$props) {
       view: {
         xDomain: [-15, 15],
         yDomain: [0, 35e4],
-        filter: (d) => d["Gross Income"] < 35e4,
+        filter: (d) => d["Gross income"] < 35e4,
         highlightGroup: null
       }
     },
     {
-      id: "middle-class",
-      title: "Middle-class families see mixed results",
-      groupText: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
+      id: "lower-income",
+      title: "Lower-income households under $50,000",
+      groupText: "Households earning under $50,000 see varied outcomes. While many benefit from Child Tax Credit expansions and TCJA extensions, some undocumented families lose access to credits due to new SSN requirements. The bill reduces poverty by 5.5% overall, with the bottom decile gaining an average of $342.",
       view: {
-        xDomain: [-10, 20],
-        yDomain: [5e4, 15e4],
-        filter: (d) => d["Gross Income"] >= 5e4 && d["Gross Income"] < 15e4,
+        xDomain: [-10, 15],
+        yDomain: [0, 5e4],
+        filter: (d) => d["Gross income"] >= 0 && d["Gross income"] < 5e4,
+        highlightGroup: "lower"
+      }
+    },
+    {
+      id: "middle-income",
+      title: "Middle-income households ($50,000 - $200,000)",
+      groupText: "This broad middle class benefits significantly from TCJA extensions, enhanced Child Tax Credits, and new deductions for tips and overtime pay. Seniors in this range gain substantially from the additional $6,000 senior deduction. These households typically see net income increases from the tax provisions.",
+      view: {
+        xDomain: [-15, 25],
+        yDomain: [5e4, 2e5],
+        filter: (d) => d["Gross income"] >= 5e4 && d["Gross income"] < 2e5,
         highlightGroup: "middle"
       }
     },
     {
-      id: "upper-middle",
-      title: "Upper-middle class faces the biggest swings",
-      groupText: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
+      id: "upper-income",
+      title: "Upper-income households ($200,000 - $1 million)",
+      groupText: "Higher earners face more complex outcomes as they benefit from TCJA extensions but encounter new limitations. The $40,000 SALT cap provides relief compared to the current $10,000 limit, but itemized deduction limitations at the 35% bracket reduce benefits. Many still see net gains, but the effects vary widely based on deduction usage.",
       view: {
-        xDomain: [-25, 25],
-        yDomain: [15e4, 4e5],
-        filter: (d) => d["Gross Income"] >= 15e4 && d["Gross Income"] < 4e5,
-        highlightGroup: "upper-middle"
+        xDomain: [-30, 30],
+        yDomain: [2e5, 1e6],
+        filter: (d) => d["Gross income"] >= 2e5 && d["Gross income"] < 1e6,
+        highlightGroup: "upper"
       }
     },
     {
-      id: "high-earners",
-      title: "High earners see significant increases",
-      groupText: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
+      id: "highest-income",
+      title: "Highest-income households ($1 million+)",
+      groupText: "The wealthiest households experience the largest absolute gains but face the most limitations. While they benefit from rate reductions and QBID provisions, new restrictions on itemized deductions and charitable contribution floors reduce their benefits. The top 10% gains most in absolute terms, averaging $13,231, contributing to a 0.4% increase in income inequality.",
       view: {
-        xDomain: [-40, 40],
-        yDomain: [4e5, 1e6],
-        filter: (d) => d["Gross Income"] >= 4e5 && d["Gross Income"] < 1e6,
-        highlightGroup: "high"
-      }
-    },
-    {
-      id: "ultra-wealthy",
-      title: "The ultra-wealthy face the largest changes",
-      groupText: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
-      view: {
-        xDomain: [-60, 60],
+        xDomain: [-50, 50],
         yDomain: [1e6, 1e7],
-        filter: (d) => d["Gross Income"] >= 1e6,
-        highlightGroup: "ultra"
+        filter: (d) => d["Gross income"] >= 1e6,
+        highlightGroup: "highest"
       }
     }
   ];
@@ -117,20 +117,109 @@ function _page($$payload, $$props) {
   }
   function generateHouseholdSummary(household) {
     if (!household) return "";
-    const income = household["Gross Income"];
-    const baselineNetIncome = household["Baseline Net Income"];
-    const changeInNetIncome = household["Total Change in Net Income"];
-    const percentChange = household["Percentage Change in Net Income"];
-    household["Household Size"];
-    const isMarried = household["Is Married"];
-    const numDependents = household["Number of Dependents"];
-    const age = household["Age of Head"];
+    const income = household["Gross income"];
+    const baselineNetIncome = household["Baseline net income"];
+    const changeInNetIncome = household["Total change in net income"];
+    const percentChange = household["Percentage change in net income"];
+    household["Household size"];
+    const isMarried = household["Is married"];
+    const numDependents = household["Number of dependents"];
+    const age = household["Age of head"];
     const state = household["State"];
     const familyStructure = isMarried ? numDependents > 0 ? `married couple with ${numDependents} dependent${numDependents > 1 ? "s" : ""}` : "married couple" : numDependents > 0 ? `single parent with ${numDependents} dependent${numDependents > 1 ? "s" : ""}` : "single person";
-    const incomeDescription = income < 5e4 ? "low-income" : income < 1e5 ? "middle-income" : income < 5e5 ? "upper-middle-income" : "high-income";
-    const changeDescription = Math.abs(changeInNetIncome) < 100 ? "minimal" : Math.abs(changeInNetIncome) < 1e3 ? "modest" : Math.abs(changeInNetIncome) < 5e3 ? "significant" : "substantial";
     const gainOrLoss = changeInNetIncome > 0 ? "gains" : "loses";
-    return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} and a net income of $${baselineNetIncome.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? "increase" : "decrease"} in their net income.`;
+    return `This household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} and a net income of $${baselineNetIncome.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} annually, representing a ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? "increase" : "decrease"} in their net income.`;
+  }
+  function getProvisionBreakdown(household) {
+    if (!household) return [];
+    const provisions = [
+      {
+        name: "Tax rate reform",
+        key: "Change in net income after tax rate reform"
+      },
+      {
+        name: "Standard deduction reform",
+        key: "Change in net income after standard deduction reform"
+      },
+      {
+        name: "Exemption reform",
+        key: "Change in net income after exemption reform"
+      },
+      {
+        name: "Child Tax Credit reform",
+        key: "Change in net income after CTC reform"
+      },
+      {
+        name: "QBID reform",
+        key: "Change in net income after QBID reform"
+      },
+      {
+        name: "AMT reform",
+        key: "Change in net income after AMT reform"
+      },
+      {
+        name: "Miscellaneous reform",
+        key: "Change in net income after miscellaneous reform"
+      },
+      {
+        name: "Other itemized deductions reform",
+        key: "Change in net income after other itemized deductions reform"
+      },
+      {
+        name: "Limitation on itemized deductions reform",
+        key: "Change in net income after limitation on itemized deductions reform"
+      },
+      {
+        name: "Estate tax reform",
+        key: "Change in net income after estate tax reform"
+      },
+      {
+        name: "Senior deduction reform",
+        key: "Change in net income after senior deduction reform"
+      },
+      {
+        name: "Tip income exempt",
+        key: "Change in net income after tip income exempt"
+      },
+      {
+        name: "Overtime income exempt",
+        key: "Change in net income after overtime income exempt"
+      },
+      {
+        name: "Auto loan interest ALD",
+        key: "Change in net income after auto loan interest ALD"
+      },
+      {
+        name: "SALT reform",
+        key: "Change in net income after SALT reform"
+      },
+      {
+        name: "CDCC reform",
+        key: "Change in net income after CDCC reform"
+      },
+      {
+        name: "ACA enhanced subsidies reform",
+        key: "Change in net income after ACA enhanced subsidies reform"
+      },
+      {
+        name: "SNAP takeup reform",
+        key: "Change in net income after SNAP takeup reform"
+      },
+      {
+        name: "ACA takeup reform",
+        key: "Change in net income after ACA takeup reform"
+      },
+      {
+        name: "Medicaid takeup reform",
+        key: "Change in net income after Medicaid takeup reform"
+      }
+    ];
+    return provisions.map((provision, index) => ({
+      name: provision.name,
+      value: household[provision.key] || 0,
+      index
+      // Add index for unique IDs
+    })).filter((provision) => Math.abs(provision.value) > 0.01).sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
   }
   let textSections = [];
   let currentStateIndex = 0;
@@ -179,9 +268,11 @@ function _page($$payload, $$props) {
       const baseViewId = baseViews[Math.floor(newIndex / 2)]?.id;
       const filteredData = data.filter(baseViews[Math.floor(newIndex / 2)]?.view?.filter || (() => true));
       if (filteredData.length > 0) {
-        const randomIndex = Math.floor(Math.random() * filteredData.length);
-        randomHouseholds[baseViewId] = filteredData[randomIndex];
-        randomHouseholds = { ...randomHouseholds };
+        const randomHousehold = getRandomWeightedHousehold(filteredData);
+        if (randomHousehold) {
+          randomHouseholds[baseViewId] = randomHousehold;
+          randomHouseholds = { ...randomHouseholds };
+        }
       }
     }
     currentStateIndex = newIndex;
@@ -208,6 +299,18 @@ function _page($$payload, $$props) {
     requestAnimationFrame(animate);
   }
   let previousHouseholds = {};
+  function getRandomWeightedHousehold(filteredData) {
+    if (!filteredData || filteredData.length === 0) return null;
+    const totalWeight = filteredData.reduce((sum, household) => sum + (household["Household weight"] || 1), 0);
+    let randomWeight = Math.random() * totalWeight;
+    for (const household of filteredData) {
+      randomWeight -= household["Household weight"] || 1;
+      if (randomWeight <= 0) {
+        return household;
+      }
+    }
+    return filteredData[filteredData.length - 1];
+  }
   {
     if (typeof window !== "undefined") {
       Object.keys(randomHouseholds).forEach((viewId) => {
@@ -216,24 +319,39 @@ function _page($$payload, $$props) {
         if (currentHousehold && previousHousehold && currentHousehold.id !== previousHousehold.id) {
           const sectionIndex = scrollStates.findIndex((state) => state.viewType === "individual" && baseViews[Math.floor(scrollStates.indexOf(state) / 2)]?.id === viewId);
           if (sectionIndex >= 0) {
+            const isCurrentSection = sectionIndex === currentStateIndex;
+            const animationDelay = isCurrentSection ? 50 : 100;
+            const animationDuration = isCurrentSection ? 400 : 600;
             setTimeout(
               () => {
-                createAnimatedNumber(`gross-income-${sectionIndex}`, previousHousehold["Gross Income"], currentHousehold["Gross Income"], formatCurrency, 600);
+                createAnimatedNumber(`gross-income-${sectionIndex}`, previousHousehold["Gross income"], currentHousehold["Gross income"], formatCurrency, animationDuration);
               },
-              100
+              animationDelay
             );
             setTimeout(
               () => {
-                createAnimatedNumber(`net-change-${sectionIndex}`, previousHousehold["Total Change in Net Income"], currentHousehold["Total Change in Net Income"], formatDollarChange, 600);
+                createAnimatedNumber(`net-change-${sectionIndex}`, previousHousehold["Total change in net income"], currentHousehold["Total change in net income"], formatDollarChange, animationDuration);
               },
-              200
+              animationDelay + 100
             );
             setTimeout(
               () => {
-                createAnimatedNumber(`percent-change-${sectionIndex}`, previousHousehold["Percentage Change in Net Income"], currentHousehold["Percentage Change in Net Income"], formatPercentage, 600);
+                createAnimatedNumber(`percent-change-${sectionIndex}`, previousHousehold["Percentage change in net income"], currentHousehold["Percentage change in net income"], formatPercentage, animationDuration);
               },
-              300
+              animationDelay + 200
             );
+            const currentProvisions = getProvisionBreakdown(currentHousehold);
+            const previousProvisions = getProvisionBreakdown(previousHousehold);
+            currentProvisions.forEach((currentProv, provIndex) => {
+              const prevProv = previousProvisions.find((p) => p.index === currentProv.index);
+              const prevValue = prevProv ? prevProv.value : 0;
+              setTimeout(
+                () => {
+                  createAnimatedNumber(`provision-${sectionIndex}-${currentProv.index}`, prevValue, currentProv.value, formatDollarChange, animationDuration);
+                },
+                animationDelay + 300 + provIndex * 20
+              );
+            });
           }
         }
       });
@@ -251,7 +369,7 @@ function _page($$payload, $$props) {
   const each_array = ensure_array_like(scrollStates);
   head($$payload, ($$payload2) => {
     $$payload2.title = `<title>NYT-Style Scatterplot</title>`;
-    $$payload2.out += `<style class="svelte-r8z2b2">
+    $$payload2.out += `<style class="svelte-2bseyx">
     body {
       margin: 0;
       padding: 0;
@@ -259,22 +377,40 @@ function _page($$payload, $$props) {
     }
   </style>`;
   });
-  $$payload.out += `<div class="app svelte-r8z2b2">`;
+  $$payload.out += `<div class="app svelte-2bseyx">`;
   {
     $$payload.out += "<!--[-->";
-    $$payload.out += `<div class="loading svelte-r8z2b2"><div class="spinner svelte-r8z2b2"></div> <p class="svelte-r8z2b2">Loading data...</p></div>`;
+    $$payload.out += `<div class="loading svelte-2bseyx"><div class="spinner svelte-2bseyx"></div> <p class="svelte-2bseyx">Loading data...</p></div>`;
   }
-  $$payload.out += `<!--]--> <div class="nyt-container svelte-r8z2b2"><div class="text-column svelte-r8z2b2"><!--[-->`;
+  $$payload.out += `<!--]--> <div class="nyt-container svelte-2bseyx"><div class="text-column svelte-2bseyx"><!--[-->`;
   for (let i = 0, $$length = each_array.length; i < $$length; i++) {
     let state = each_array[i];
-    $$payload.out += `<section${attr_class("text-section svelte-r8z2b2", void 0, { "active": i === currentStateIndex })}${attr("data-index", i)}><div class="section-content svelte-r8z2b2"><h2 class="svelte-r8z2b2">${escape_html(state.title)}</h2> <p class="svelte-r8z2b2">${html(state.text)}</p> `;
+    $$payload.out += `<section${attr_class("text-section svelte-2bseyx", void 0, { "active": i === currentStateIndex })}${attr("data-index", i)}><div class="section-content svelte-2bseyx"><h2 class="svelte-2bseyx">${escape_html(state.title)}</h2> <p class="svelte-2bseyx">${html(state.text)}</p> `;
     if (state.viewType === "individual") {
       $$payload.out += "<!--[-->";
       const baseViewId = baseViews[Math.floor(i / 2)]?.id;
       const randomHousehold = randomHouseholds[baseViewId];
       if (randomHousehold) {
         $$payload.out += "<!--[-->";
-        $$payload.out += `<div class="household-profile svelte-r8z2b2"><h3 class="svelte-r8z2b2">Individual household profile</h3> <div class="household-summary svelte-r8z2b2"><p class="svelte-r8z2b2">${escape_html(generateHouseholdSummary(randomHousehold))}</p></div> <div class="household-details svelte-r8z2b2"><div class="detail-item svelte-r8z2b2"><span class="label svelte-r8z2b2">Gross income:</span> <span class="value svelte-r8z2b2"${attr("id", `gross-income-${stringify(i)}`)}>${escape_html(formatCurrency(randomHousehold["Gross Income"]))}</span></div> <div class="detail-item svelte-r8z2b2"><span class="label svelte-r8z2b2">Net income change:</span> <span${attr_class(`value ${stringify(randomHousehold["Total Change in Net Income"] > 0 ? "positive" : "negative")}`, "svelte-r8z2b2")}${attr("id", `net-change-${stringify(i)}`)}>${escape_html(formatDollarChange(randomHousehold["Total Change in Net Income"]))}</span></div> <div class="detail-item svelte-r8z2b2"><span class="label svelte-r8z2b2">Percentage change:</span> <span${attr_class(`value ${stringify(randomHousehold["Percentage Change in Net Income"] > 0 ? "positive" : "negative")}`, "svelte-r8z2b2")}${attr("id", `percent-change-${stringify(i)}`)}>${escape_html(formatPercentage(randomHousehold["Percentage Change in Net Income"]))}</span></div></div></div>`;
+        const provisionBreakdown = getProvisionBreakdown(randomHousehold);
+        $$payload.out += `<div class="household-profile svelte-2bseyx"><h3 class="svelte-2bseyx">Individual household profile <div class="header-buttons svelte-2bseyx"><button class="action-button random-button svelte-2bseyx" title="Pick a new random household">🎲</button> <button class="action-button info-button svelte-2bseyx" title="Show detailed data for this household">ⓘ</button></div></h3> <div class="household-summary svelte-2bseyx"><p class="svelte-2bseyx">${escape_html(generateHouseholdSummary(randomHousehold))}</p></div> <div class="household-details svelte-2bseyx"><div class="detail-item svelte-2bseyx"><span class="label svelte-2bseyx">Gross income:</span> <span class="value svelte-2bseyx"${attr("id", `gross-income-${stringify(i)}`)}>${escape_html(formatCurrency(randomHousehold["Gross income"]))}</span></div> <div class="detail-item svelte-2bseyx"><span class="label svelte-2bseyx">Net income change:</span> <span${attr_class(`value ${stringify(randomHousehold["Total change in net income"] > 0 ? "positive" : "negative")}`, "svelte-2bseyx")}${attr("id", `net-change-${stringify(i)}`)}>${escape_html(formatDollarChange(randomHousehold["Total change in net income"]))}</span></div> <div class="detail-item svelte-2bseyx"><span class="label svelte-2bseyx">Percentage change:</span> <span${attr_class(`value ${stringify(randomHousehold["Percentage change in net income"] > 0 ? "positive" : "negative")}`, "svelte-2bseyx")}${attr("id", `percent-change-${stringify(i)}`)}>${escape_html(formatPercentage(randomHousehold["Percentage change in net income"]))}</span></div></div> `;
+        if (provisionBreakdown.length > 0) {
+          $$payload.out += "<!--[-->";
+          const each_array_1 = ensure_array_like(provisionBreakdown);
+          $$payload.out += `<div class="provision-breakdown svelte-2bseyx"><h4 class="svelte-2bseyx">Breakdown by provision</h4> <div class="provision-list svelte-2bseyx"><!--[-->`;
+          for (let $$index = 0, $$length2 = each_array_1.length; $$index < $$length2; $$index++) {
+            let provision = each_array_1[$$index];
+            $$payload.out += `<div class="provision-item svelte-2bseyx"><span class="provision-name svelte-2bseyx">${escape_html(provision.name)}:</span> <span${attr_class(
+              `provision-value ${stringify(provision.value > 0 ? "positive" : provision.value < 0 ? "negative" : "neutral")}`,
+              "svelte-2bseyx"
+            )}${attr("id", `provision-${stringify(i)}-${stringify(provision.index)}`)}>${escape_html(formatDollarChange(provision.value))}</span></div>`;
+          }
+          $$payload.out += `<!--]--></div></div>`;
+        } else {
+          $$payload.out += "<!--[!-->";
+          $$payload.out += `<div class="provision-breakdown svelte-2bseyx"><h4 class="svelte-2bseyx">Breakdown by provision</h4> <p class="no-provisions svelte-2bseyx">No policy provisions affect this household.</p></div>`;
+        }
+        $$payload.out += `<!--]--></div>`;
       } else {
         $$payload.out += "<!--[!-->";
       }
@@ -284,7 +420,7 @@ function _page($$payload, $$props) {
     }
     $$payload.out += `<!--]--></div></section>`;
   }
-  $$payload.out += `<!--]--></div> <div class="viz-column svelte-r8z2b2"><div class="viz-sticky svelte-r8z2b2"><canvas width="800" height="600" class="main-canvas svelte-r8z2b2"></canvas> <svg width="800" height="600" class="overlay-svg svelte-r8z2b2"></svg></div></div></div> `;
+  $$payload.out += `<!--]--></div> <div class="viz-column svelte-2bseyx"><div class="viz-sticky svelte-2bseyx"><canvas width="800" height="600" class="main-canvas svelte-2bseyx"></canvas> <svg width="800" height="600" class="overlay-svg svelte-2bseyx"></svg></div></div></div> `;
   {
     $$payload.out += "<!--[!-->";
   }

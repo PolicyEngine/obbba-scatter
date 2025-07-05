@@ -1,7 +1,7 @@
 import { S as STATE_SYMBOL, U as UNINITIALIZED, a as UNOWNED, M as MAYBE_DIRTY, C as CLEAN, D as DERIVED, b as DIRTY, I as INSPECT_EFFECT, c as BLOCK_EFFECT, d as BRANCH_EFFECT, R as ROOT_EFFECT, H as HYDRATION_ERROR, E as EFFECT_RAN, e as EFFECT_PRESERVED, f as BOUNDARY_EFFECT, g as HEAD_EFFECT, h as DESTROYED, i as INERT, j as EFFECT_TRANSPARENT, k as STALE_REACTION, l as RENDER_EFFECT, m as EFFECT, n as DISCONNECTED, o as EFFECT_IS_UPDATING, B as BROWSER, p as COMMENT_NODE, q as HYDRATION_START, r as HYDRATION_END, L as LEGACY_PROPS, s as render, t as push$1, u as setContext, v as pop$1 } from "./index.js";
 import { o as object_prototype, a as array_prototype, g as get_descriptor, b as get_prototype_of, i as is_array, s as safe_equals, e as equals, c as is_extensible, r as run_all, d as index_of, f as define_property, h as array_from } from "./equality.js";
 import "clsx";
-let base = "";
+let base = "/obbba-scatter";
 let assets = base;
 const app_dir = "_app";
 const initial = { base, assets };
@@ -1701,7 +1701,7 @@ const options = {
 		<div class="error">
 			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
   },
-  version_hash: "15oeejj"
+  version_hash: "13v9swl"
 };
 async function get_hooks() {
   let handle;

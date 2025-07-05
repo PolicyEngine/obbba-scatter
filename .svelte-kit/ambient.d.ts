@@ -27,7 +27,6 @@
  */
 declare module '$env/static/private' {
 	export const NVM_INC: string;
-	export const CLAUDE_CODE_ENTRYPOINT: string;
 	export const TERM_PROGRAM: string;
 	export const NODE: string;
 	export const INIT_CWD: string;
@@ -46,7 +45,6 @@ declare module '$env/static/private' {
 	export const npm_config_noproxy: string;
 	export const npm_config_local_prefix: string;
 	export const ENABLE_IDE_INTEGRATION: string;
-	export const GIT_EDITOR: string;
 	export const HUGGING_FACE_TOKEN: string;
 	export const USER: string;
 	export const NVM_DIR: string;
@@ -58,6 +56,7 @@ declare module '$env/static/private' {
 	export const __CF_USER_TEXT_ENCODING: string;
 	export const npm_execpath: string;
 	export const VIRTUAL_ENV: string;
+	export const PYDEVD_DISABLE_FILE_VALIDATION: string;
 	export const PATH: string;
 	export const npm_package_json: string;
 	export const _: string;
@@ -69,9 +68,9 @@ declare module '$env/static/private' {
 	export const PWD: string;
 	export const npm_lifecycle_event: string;
 	export const EDITOR: string;
-	export const OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 	export const npm_package_name: string;
 	export const LANG: string;
+	export const BUNDLED_DEBUGPY_PATH: string;
 	export const npm_config_npm_version: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 	export const XPC_FLAGS: string;
@@ -79,6 +78,7 @@ declare module '$env/static/private' {
 	export const npm_package_version: string;
 	export const XPC_SERVICE_NAME: string;
 	export const VSCODE_INJECTION: string;
+	export const VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 	export const HOME: string;
 	export const SHLVL: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
@@ -87,14 +87,12 @@ declare module '$env/static/private' {
 	export const LOGNAME: string;
 	export const npm_lifecycle_script: string;
 	export const VSCODE_GIT_IPC_HANDLE: string;
-	export const COREPACK_ENABLE_AUTO_PIN: string;
 	export const NVM_BIN: string;
 	export const npm_config_user_agent: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const GIT_ASKPASS: string;
 	export const HOMEBREW_CELLAR: string;
 	export const INFOPATH: string;
-	export const CLAUDECODE: string;
 	export const VIRTUAL_ENV_PROMPT: string;
 	export const npm_node_execpath: string;
 	export const npm_config_prefix: string;
@@ -132,7 +130,6 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		NVM_INC: string;
-		CLAUDE_CODE_ENTRYPOINT: string;
 		TERM_PROGRAM: string;
 		NODE: string;
 		INIT_CWD: string;
@@ -151,7 +148,6 @@ declare module '$env/dynamic/private' {
 		npm_config_noproxy: string;
 		npm_config_local_prefix: string;
 		ENABLE_IDE_INTEGRATION: string;
-		GIT_EDITOR: string;
 		HUGGING_FACE_TOKEN: string;
 		USER: string;
 		NVM_DIR: string;
@@ -163,6 +159,7 @@ declare module '$env/dynamic/private' {
 		__CF_USER_TEXT_ENCODING: string;
 		npm_execpath: string;
 		VIRTUAL_ENV: string;
+		PYDEVD_DISABLE_FILE_VALIDATION: string;
 		PATH: string;
 		npm_package_json: string;
 		_: string;
@@ -174,9 +171,9 @@ declare module '$env/dynamic/private' {
 		PWD: string;
 		npm_lifecycle_event: string;
 		EDITOR: string;
-		OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: string;
 		npm_package_name: string;
 		LANG: string;
+		BUNDLED_DEBUGPY_PATH: string;
 		npm_config_npm_version: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
 		XPC_FLAGS: string;
@@ -184,6 +181,7 @@ declare module '$env/dynamic/private' {
 		npm_package_version: string;
 		XPC_SERVICE_NAME: string;
 		VSCODE_INJECTION: string;
+		VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 		HOME: string;
 		SHLVL: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;
@@ -192,14 +190,12 @@ declare module '$env/dynamic/private' {
 		LOGNAME: string;
 		npm_lifecycle_script: string;
 		VSCODE_GIT_IPC_HANDLE: string;
-		COREPACK_ENABLE_AUTO_PIN: string;
 		NVM_BIN: string;
 		npm_config_user_agent: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		GIT_ASKPASS: string;
 		HOMEBREW_CELLAR: string;
 		INFOPATH: string;
-		CLAUDECODE: string;
 		VIRTUAL_ENV_PROMPT: string;
 		npm_node_execpath: string;
 		npm_config_prefix: string;
