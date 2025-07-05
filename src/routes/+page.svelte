@@ -997,7 +997,7 @@
     width: 100%;
     min-height: 100vh;
     background: var(--nyt-background);
-    font-family: var(--nyt-font-sans);
+    font-family: var(--nyt-font-serif);
   }
 
   .loading {
@@ -1093,7 +1093,7 @@
   }
 
   .text-section p {
-    font-family: var(--nyt-font-sans);
+    font-family: var(--nyt-font-serif);
     font-size: 16px;
     line-height: 1.5;
     color: var(--nyt-text-secondary);
@@ -1121,7 +1121,7 @@
   }
 
   .household-summary p {
-    font-family: var(--nyt-font-sans);
+    font-family: var(--nyt-font-serif);
     font-size: 16px;
     line-height: 1.5;
     color: var(--nyt-text-secondary);
