@@ -15,7 +15,7 @@
   const scrollStates = [
     {
       id: 'intro',
-      title: "How Tax Changes Affect Every American Household",
+      title: "How tax changes affect every American household",
       text: "Each dot represents a household, positioned by their income and how much they gain or lose under the proposed tax changes. Green dots show households that benefit, red shows those that face increases.",
       view: {
         xDomain: [-15, 15],
@@ -26,7 +26,7 @@
     },
     {
       id: 'middle-class', 
-      title: "Middle-Class Families See Mixed Results",
+      title: "Middle-class families see mixed results",
       text: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
       view: {
         xDomain: [-10, 20],
@@ -37,7 +37,7 @@
     },
     {
       id: 'upper-middle',
-      title: "Upper-Middle Class Faces the Biggest Swings", 
+      title: "Upper-middle class faces the biggest swings", 
       text: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
       view: {
         xDomain: [-25, 25],
@@ -48,7 +48,7 @@
     },
     {
       id: 'high-earners',
-      title: "High Earners See Significant Increases",
+      title: "High earners see significant increases",
       text: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
       view: {
         xDomain: [-40, 40], 
@@ -59,7 +59,7 @@
     },
     {
       id: 'ultra-wealthy',
-      title: "The Ultra-Wealthy Face the Largest Changes",
+      title: "The ultra-wealthy face the largest changes",
       text: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
       view: {
         xDomain: [-60, 60],
@@ -219,7 +219,7 @@
     const ctx = canvas.getContext('2d', { alpha: false });
     const width = canvas.width;
     const height = canvas.height;
-    const margin = { top: 60, right: 100, bottom: 80, left: 100 };
+    const margin = { top: 60, right: 100, bottom: 80, left: 80 };
 
     // Determine current view and interpolation
     let currentView, targetView, interpolationT;
@@ -275,7 +275,7 @@
       .range([height - margin.bottom, margin.top]);
 
     // Draw NYT-style grid lines
-    ctx.strokeStyle = '#e0e0e0';
+    ctx.strokeStyle = '#DFDFDF';
     ctx.lineWidth = 0.5;
     ctx.setLineDash([]);
     
@@ -392,7 +392,7 @@
         .attr('transform', `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale).tickFormat(d => `${d > 0 ? '+' : ''}${d}%`))
         .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
-        .style('font-size', '11px')
+        .style('font-size', '10px')
         .style('color', '#121212');
 
       // Y-axis  
@@ -400,7 +400,7 @@
         .attr('transform', `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('$,')(d)))
         .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
-        .style('font-size', '11px')
+        .style('font-size', '10px')
         .style('color', '#121212');
 
       // Style axes lines
@@ -417,7 +417,7 @@
         .attr('y', height - 15)
         .attr('text-anchor', 'middle')
         .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
-        .style('font-size', '12px')
+        .style('font-size', '16px')
         .style('font-weight', '400')
         .style('fill', '#666666')
         .text('Change in income →');
@@ -428,7 +428,7 @@
         .attr('y', 25)
         .attr('text-anchor', 'middle')
         .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
-        .style('font-size', '12px')
+        .style('font-size', '16px')
         .style('font-weight', '400')
         .style('fill', '#666666')
         .text('← Annual household income');
@@ -522,7 +522,7 @@
     body {
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: nyt-franklin, helvetica, arial, sans-serif;
     }
   </style>
 </svelte:head>
@@ -575,13 +575,18 @@
 
 <style>
   :root {
-    --nyt-background: #ffffff;
+    --nyt-background: #FFFFFF;
     --nyt-text-primary: #121212;
     --nyt-text-secondary: #666666;
+    --nyt-axis-grid: #000000;
+    --nyt-grid-lines: #DFDFDF;
     --nyt-scatter-positive: #1a9658;
     --nyt-scatter-negative: #d75442;
     --nyt-scatter-neutral: #999999;
+    --nyt-border: #DFDFDF;
+    --nyt-hover: #EBEBEB;
     --nyt-font-sans: nyt-franklin, helvetica, arial, sans-serif;
+    --nyt-font-serif: nyt-cheltenham, georgia, serif;
   }
 
   .app {
@@ -649,7 +654,7 @@
 
   .main-canvas {
     background: var(--nyt-background);
-    border: 1px solid #e0e0e0;
+    border: 1px solid var(--nyt-border);
   }
 
   .overlay-svg {
@@ -659,15 +664,15 @@
 
   .text-section {
     min-height: 60vh;
-    padding: 3rem 2rem;
+    padding: 60px 40px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--nyt-border);
     transition: background-color 0.3s ease;
   }
 
   .text-section.active {
-    background: #f8f9fa;
+    background: var(--nyt-hover);
   }
 
   .section-content {
@@ -675,7 +680,7 @@
   }
 
   .text-section h2 {
-    font-family: var(--nyt-font-sans);
+    font-family: var(--nyt-font-serif);
     font-size: 1.8rem;
     font-weight: 700;
     line-height: 1.2;
@@ -685,10 +690,10 @@
 
   .text-section p {
     font-family: var(--nyt-font-sans);
-    font-size: 1.1rem;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.5;
     color: var(--nyt-text-secondary);
-    margin: 0;
+    margin: 24px 0 0 0;
   }
 
   /* Mobile responsive */
