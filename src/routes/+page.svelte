@@ -7,10 +7,12 @@
   let loading = true;
   let scrollProgress = 0;
   let selectedPoint = null;
+  let selectedData = null;
   let canvasRef;
   let svgRef;
   let scrollContainer;
   let currentSectionIndex = 0;
+  let renderedPoints = []; // Store positions for hit detection
 
   const scrollStates = [
     {
@@ -312,6 +314,9 @@
       ctx.stroke();
     });
 
+    // Clear rendered points for hit detection
+    renderedPoints = [];
+
     // Enhanced point rendering with smooth fade animations
     allRelevantData.forEach(d => {
       const x = xScale(d['Percentage Change in Net Income']);
@@ -365,17 +370,26 @@
       const finalOpacity = baseOpacity * fadeOpacity;
 
       if (finalOpacity > 0.02) { // Only render if sufficiently visible
+        // Store point for hit detection
+        renderedPoints.push({
+          x: x,
+          y: y,
+          radius: radius,
+          data: d,
+          opacity: finalOpacity
+        });
+
         ctx.globalAlpha = finalOpacity;
         ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
 
-        // Highlight stroke for featured points
-        if (isHighlighted && finalOpacity > 0.5) {
+        // Highlight stroke for featured points or selected point
+        if ((isHighlighted && finalOpacity > 0.5) || (selectedData && selectedData.id === d.id)) {
           ctx.globalAlpha = finalOpacity;
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = selectedData && selectedData.id === d.id ? '#0066cc' : '#000000';
+          ctx.lineWidth = selectedData && selectedData.id === d.id ? 2 : 1;
           ctx.stroke();
         }
       }
@@ -521,6 +535,41 @@
     }
   }
 
+  // Canvas click handler for dot selection
+  function handleCanvasClick(event) {
+    if (!canvasRef || !renderedPoints.length) return;
+    
+    const rect = canvasRef.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+    
+    // Find the closest point within click radius
+    let closestPoint = null;
+    let minDistance = Infinity;
+    const maxClickDistance = 8; // pixels
+    
+    for (const point of renderedPoints) {
+      if (point.opacity < 0.1) continue; // Skip nearly invisible points
+      
+      const dx = clickX - point.x;
+      const dy = clickY - point.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance <= point.radius + maxClickDistance && distance < minDistance) {
+        minDistance = distance;
+        closestPoint = point;
+      }
+    }
+    
+    if (closestPoint) {
+      selectedData = closestPoint.data;
+      // Trigger re-render to show selection
+      if (!isTransitioning) {
+        renderVisualization();
+      }
+    }
+  }
+
   // Watch for text sections being bound
   $: if (textSections.length > 0 && textSections.every(el => el)) {
     setTimeout(() => {
@@ -573,6 +622,7 @@
           width="800" 
           height="600"
           class="main-canvas"
+          on:click={handleCanvasClick}
         ></canvas>
         <svg 
           bind:this={svgRef} 
@@ -584,6 +634,38 @@
       </div>
     </div>
   </div>
+
+  <!-- Data table for selected point -->
+  {#if selectedData}
+    <div class="data-table-container">
+      <h3>Selected Household Data</h3>
+      <table class="data-table">
+        <tbody>
+          {#each Object.entries(selectedData) as [key, value]}
+            {#if key !== 'id' && key !== 'isAnnotated' && key !== 'sectionIndex' && key !== 'isHighlighted' && key !== 'highlightGroup' && key !== 'stateIndex'}
+              <tr>
+                <td class="key-column">{key}</td>
+                <td class="value-column">
+                  {#if typeof value === 'number'}
+                    {#if key.includes('Income') || key.includes('Taxes') || key.includes('Net Income Change')}
+                      ${value.toLocaleString()}
+                    {:else if key.includes('Percentage')}
+                      {value > 0 ? '+' : ''}{value.toFixed(2)}%
+                    {:else}
+                      {value.toLocaleString()}
+                    {/if}
+                  {:else}
+                    {value}
+                  {/if}
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      </table>
+      <button class="close-table" on:click={() => selectedData = null}>×</button>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -668,6 +750,7 @@
 
   .main-canvas {
     background: var(--nyt-background);
+    cursor: crosshair;
   }
 
   .overlay-svg {
@@ -747,6 +830,107 @@
     
     .text-section p {
       font-size: 1rem;
+    }
+  }
+
+  /* Data table styles */
+  .data-table-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--nyt-background);
+    border: 1px solid var(--nyt-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 20px;
+    max-width: 500px;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+
+  .data-table-container h3 {
+    font-family: var(--nyt-font-serif);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--nyt-text-primary);
+    margin: 0 0 15px 0;
+    padding-right: 30px;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--nyt-font-mono);
+    font-size: 12px;
+  }
+
+  .data-table tr {
+    border-bottom: 1px solid var(--nyt-grid-lines);
+  }
+
+  .data-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .key-column {
+    padding: 8px 12px 8px 0;
+    color: var(--nyt-text-secondary);
+    vertical-align: top;
+    font-weight: 500;
+    width: 60%;
+  }
+
+  .value-column {
+    padding: 8px 0;
+    color: var(--nyt-text-primary);
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .close-table {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--nyt-text-secondary);
+    cursor: pointer;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+  }
+
+  .close-table:hover {
+    background-color: var(--nyt-hover);
+    color: var(--nyt-text-primary);
+  }
+
+  /* Mobile responsive for data table */
+  @media (max-width: 768px) {
+    .data-table-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      transform: none;
+      max-width: none;
+      border-radius: 8px 8px 0 0;
+      max-height: 50vh;
+    }
+
+    .data-table {
+      font-size: 11px;
+    }
+
+    .key-column {
+      width: 55%;
     }
   }
 
