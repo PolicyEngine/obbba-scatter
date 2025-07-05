@@ -632,7 +632,7 @@
         .style('font-size', '16px')
         .style('font-weight', '400')
         .style('fill', '#666666')
-        .text('← Annual household income');
+        .text('Annual household income →');
     }
   }
 
