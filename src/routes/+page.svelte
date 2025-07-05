@@ -391,7 +391,7 @@
       const xAxis = g.append('g')
         .attr('transform', `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale).tickFormat(d => `${d > 0 ? '+' : ''}${d}%`))
-        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-family', 'Roboto Mono, monospace')
         .style('font-size', '10px')
         .style('color', '#121212');
 
@@ -399,7 +399,7 @@
       const yAxis = g.append('g')
         .attr('transform', `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('$,')(d)))
-        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-family', 'Roboto Mono, monospace')
         .style('font-size', '10px')
         .style('color', '#121212');
 
@@ -416,7 +416,7 @@
         .attr('x', width / 2)
         .attr('y', height - 15)
         .attr('text-anchor', 'middle')
-        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-family', 'Roboto Serif, serif')
         .style('font-size', '16px')
         .style('font-weight', '400')
         .style('fill', '#666666')
@@ -427,7 +427,7 @@
         .attr('x', -height / 2)
         .attr('y', 25)
         .attr('text-anchor', 'middle')
-        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-family', 'Roboto Serif, serif')
         .style('font-size', '16px')
         .style('font-weight', '400')
         .style('fill', '#666666')
@@ -585,8 +585,9 @@
     --nyt-scatter-neutral: #999999;
     --nyt-border: #DFDFDF;
     --nyt-hover: #EBEBEB;
-    --nyt-font-sans: nyt-franklin, helvetica, arial, sans-serif;
-    --nyt-font-serif: nyt-cheltenham, georgia, serif;
+    --nyt-font-sans: 'Roboto', sans-serif;
+    --nyt-font-serif: 'Roboto Serif', serif;
+    --nyt-font-mono: 'Roboto Mono', monospace;
   }
 
   .app {
