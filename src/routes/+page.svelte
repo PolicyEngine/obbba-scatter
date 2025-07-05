@@ -29,47 +29,47 @@
       }
     },
     {
-      id: 'middle-class', 
-      title: "Middle-class families see mixed results",
-      groupText: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
+      id: 'lower-income', 
+      title: "Lower-income households under $50,000",
+      groupText: "Households earning under $50,000 see varied outcomes. While many benefit from Child Tax Credit expansions and TCJA extensions, some undocumented families lose access to credits due to new SSN requirements. The bill reduces poverty by 5.5% overall, with the bottom decile gaining an average of $342.",
       view: {
-        xDomain: [-10, 20],
-        yDomain: [50000, 150000],
-        filter: d => d['Gross income'] >= 50000 && d['Gross income'] < 150000,
+        xDomain: [-10, 15],
+        yDomain: [0, 50000],
+        filter: d => d['Gross income'] >= 0 && d['Gross income'] < 50000,
+        highlightGroup: 'lower'
+      }
+    },
+    {
+      id: 'middle-income',
+      title: "Middle-income households ($50,000 - $200,000)", 
+      groupText: "This broad middle class benefits significantly from TCJA extensions, enhanced Child Tax Credits, and new deductions for tips and overtime pay. Seniors in this range gain substantially from the additional $6,000 senior deduction. These households typically see net income increases from the tax provisions.",
+      view: {
+        xDomain: [-15, 25],
+        yDomain: [50000, 200000],
+        filter: d => d['Gross income'] >= 50000 && d['Gross income'] < 200000,
         highlightGroup: 'middle'
       }
     },
     {
-      id: 'upper-middle',
-      title: "Upper-middle class faces the biggest swings", 
-      groupText: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
+      id: 'upper-income',
+      title: "Upper-income households ($200,000 - $1 million)",
+      groupText: "Higher earners face more complex outcomes as they benefit from TCJA extensions but encounter new limitations. The $40,000 SALT cap provides relief compared to the current $10,000 limit, but itemized deduction limitations at the 35% bracket reduce benefits. Many still see net gains, but the effects vary widely based on deduction usage.",
       view: {
-        xDomain: [-25, 25],
-        yDomain: [150000, 400000],
-        filter: d => d['Gross income'] >= 150000 && d['Gross income'] < 400000,
-        highlightGroup: 'upper-middle'
+        xDomain: [-30, 30], 
+        yDomain: [200000, 1000000],
+        filter: d => d['Gross income'] >= 200000 && d['Gross income'] < 1000000,
+        highlightGroup: 'upper'
       }
     },
     {
-      id: 'high-earners',
-      title: "High earners see significant increases",
-      groupText: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
+      id: 'highest-income',
+      title: "Highest-income households ($1 million+)",
+      groupText: "The wealthiest households experience the largest absolute gains but face the most limitations. While they benefit from rate reductions and QBID provisions, new restrictions on itemized deductions and charitable contribution floors reduce their benefits. The top 10% gains most in absolute terms, averaging $13,231, contributing to a 0.4% increase in income inequality.",
       view: {
-        xDomain: [-40, 40], 
-        yDomain: [400000, 1000000],
-        filter: d => d['Gross income'] >= 400000 && d['Gross income'] < 1000000,
-        highlightGroup: 'high'
-      }
-    },
-    {
-      id: 'ultra-wealthy',
-      title: "The ultra-wealthy face the largest changes",
-      groupText: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
-      view: {
-        xDomain: [-60, 60],
+        xDomain: [-50, 50],
         yDomain: [1000000, 10000000],
         filter: d => d['Gross income'] >= 1000000,
-        highlightGroup: 'ultra'
+        highlightGroup: 'highest'
       }
     }
   ];
@@ -141,8 +141,10 @@
 
           // Select random household for individual view (skip intro)
           if (baseIndex > 0) {
-            const randomIndex = Math.floor(Math.random() * filteredData.length);
-            randomHouseholds[baseView.id] = filteredData[randomIndex];
+            const randomHousehold = getRandomWeightedHousehold(filteredData);
+            if (randomHousehold) {
+              randomHouseholds[baseView.id] = randomHousehold;
+            }
           }
         }
       });
@@ -221,17 +223,9 @@
       (numDependents > 0 ? `married couple with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'married couple') :
       (numDependents > 0 ? `single parent with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'single person');
     
-    const incomeDescription = income < 50000 ? 'low-income' :
-                            income < 100000 ? 'middle-income' :
-                            income < 500000 ? 'upper-middle-income' : 'high-income';
-    
-    const changeDescription = Math.abs(changeInNetIncome) < 100 ? 'minimal' :
-                            Math.abs(changeInNetIncome) < 1000 ? 'modest' :
-                            Math.abs(changeInNetIncome) < 5000 ? 'significant' : 'substantial';
-    
     const gainOrLoss = changeInNetIncome > 0 ? 'gains' : 'loses';
     
-    return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} and a net income of $${baselineNetIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
+    return `This household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} and a net income of $${baselineNetIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} annually, representing a ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
   }
 
   // Get provision breakdown for a household
@@ -267,7 +261,8 @@
         value: household[provision.key] || 0,
         index: index // Add index for unique IDs
       }))
-      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // Sort by absolute impact, showing all
+      .filter(provision => Math.abs(provision.value) > 0.01) // Only show non-zero provisions
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // Sort by absolute impact
   }
 
   // Scroll handling with intersection observer pattern
@@ -332,10 +327,12 @@
       const baseViewId = baseViews[Math.floor(newIndex / 2)]?.id;
       const filteredData = data.filter(baseViews[Math.floor(newIndex / 2)]?.view?.filter || (() => true));
       if (filteredData.length > 0) {
-        const randomIndex = Math.floor(Math.random() * filteredData.length);
-        randomHouseholds[baseViewId] = filteredData[randomIndex];
-        // Trigger reactivity
-        randomHouseholds = { ...randomHouseholds };
+        const randomHousehold = getRandomWeightedHousehold(filteredData);
+        if (randomHousehold) {
+          randomHouseholds[baseViewId] = randomHousehold;
+          // Trigger reactivity
+          randomHouseholds = { ...randomHouseholds };
+        }
       }
     }
     
@@ -907,6 +904,51 @@
     }
   }
 
+  // Weighted random sampling function
+  function getRandomWeightedHousehold(filteredData) {
+    if (!filteredData || filteredData.length === 0) return null;
+    
+    // Calculate total weight
+    const totalWeight = filteredData.reduce((sum, household) => sum + (household['Household weight'] || 1), 0);
+    
+    // Generate random number between 0 and totalWeight
+    let randomWeight = Math.random() * totalWeight;
+    
+    // Find the household that corresponds to this weight
+    for (const household of filteredData) {
+      randomWeight -= (household['Household weight'] || 1);
+      if (randomWeight <= 0) {
+        return household;
+      }
+    }
+    
+    // Fallback to last household if rounding errors occur
+    return filteredData[filteredData.length - 1];
+  }
+
+  // Function to pick a new random household for current section
+  function pickRandomHousehold() {
+    const currentState = scrollStates[currentStateIndex];
+    if (currentState?.viewType === 'individual') {
+      const baseViewIndex = Math.floor(currentStateIndex / 2);
+      const baseView = baseViews[baseViewIndex];
+      if (baseView) {
+        const filteredData = data.filter(baseView.view.filter);
+        const newHousehold = getRandomWeightedHousehold(filteredData);
+        if (newHousehold) {
+          randomHouseholds[baseView.id] = newHousehold;
+          // Trigger reactivity
+          randomHouseholds = { ...randomHouseholds };
+          
+          // Trigger re-render to show the new household highlighting
+          if (!isTransitioning) {
+            renderVisualization();
+          }
+        }
+      }
+    }
+  }
+
   // Watch for text sections being bound
   $: if (textSections.length > 0 && textSections.every(el => el)) {
     setTimeout(() => {
@@ -956,13 +998,22 @@
                 <div class="household-profile">
                   <h3>
                     Individual household profile
-                    <button 
-                      class="info-icon" 
-                      on:click={() => showHouseholdDetails(randomHousehold)}
-                      title="Show detailed data for this household"
-                    >
-                      ⓘ
-                    </button>
+                    <div class="header-buttons">
+                      <button 
+                        class="action-button random-button" 
+                        on:click={pickRandomHousehold}
+                        title="Pick a new random household"
+                      >
+                        🎲
+                      </button>
+                      <button 
+                        class="action-button info-button" 
+                        on:click={() => showHouseholdDetails(randomHousehold)}
+                        title="Show detailed data for this household"
+                      >
+                        ⓘ
+                      </button>
+                    </div>
                   </h3>
                   <div class="household-summary">
                     <p>{generateHouseholdSummary(randomHousehold)}</p>
@@ -988,19 +1039,26 @@
                     </div>
                   </div>
                   
-                  <div class="provision-breakdown">
-                    <h4>Breakdown by provision</h4>
-                    <div class="provision-list">
-                      {#each provisionBreakdown as provision}
-                        <div class="provision-item">
-                          <span class="provision-name">{provision.name}:</span>
-                          <span class="provision-value {provision.value > 0 ? 'positive' : provision.value < 0 ? 'negative' : 'neutral'}" id="provision-{i}-{provision.index}">
-                            {formatDollarChange(provision.value)}
-                          </span>
-                        </div>
-                      {/each}
+                  {#if provisionBreakdown.length > 0}
+                    <div class="provision-breakdown">
+                      <h4>Breakdown by provision</h4>
+                      <div class="provision-list">
+                        {#each provisionBreakdown as provision}
+                          <div class="provision-item">
+                            <span class="provision-name">{provision.name}:</span>
+                            <span class="provision-value {provision.value > 0 ? 'positive' : provision.value < 0 ? 'negative' : 'neutral'}" id="provision-{i}-{provision.index}">
+                              {formatDollarChange(provision.value)}
+                            </span>
+                          </div>
+                        {/each}
+                      </div>
                     </div>
-                  </div>
+                  {:else}
+                    <div class="provision-breakdown">
+                      <h4>Breakdown by provision</h4>
+                      <p class="no-provisions">No policy provisions affect this household.</p>
+                    </div>
+                  {/if}
                 </div>
               {/if}
             {/if}
@@ -1202,15 +1260,21 @@
     margin: 0 0 1rem 0;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+  }
+
+  .header-buttons {
+    display: flex;
+    align-items: center;
     gap: 0.5rem;
   }
 
-  .info-icon {
+  .action-button {
     background: none;
     border: 1px solid var(--nyt-border);
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1221,14 +1285,18 @@
     flex-shrink: 0;
   }
 
-  .info-icon:hover {
+  .action-button:hover {
     background-color: var(--nyt-hover);
     color: var(--nyt-text-primary);
     border-color: var(--nyt-text-secondary);
   }
 
-  .info-icon:active {
+  .action-button:active {
     transform: scale(0.95);
+  }
+
+  .random-button {
+    font-size: 12px;
   }
 
   .household-summary {
@@ -1335,6 +1403,14 @@
 
   .provision-value.neutral {
     color: var(--nyt-text-secondary);
+  }
+
+  .no-provisions {
+    font-family: var(--nyt-font-serif);
+    font-size: 14px;
+    color: var(--nyt-text-secondary);
+    font-style: italic;
+    margin: 0;
   }
 
   /* Mobile responsive */
