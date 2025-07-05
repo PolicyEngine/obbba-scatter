@@ -101,7 +101,7 @@
   // Load data
   onMount(async () => {
     try {
-      const response = await fetch('/household_tax_income_changes_senate_current_law_baseline.csv');
+      const response = await fetch('/obbba-scatter/household_tax_income_changes_senate_current_law_baseline.csv');
       const raw = await response.text();
       const result = Papa.parse(raw, {
         header: true,
