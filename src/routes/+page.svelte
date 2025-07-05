@@ -579,11 +579,11 @@
         ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
 
-        // Highlight stroke for featured points or selected point
-        if ((isHighlighted && finalOpacity > 0.5) || (selectedData && selectedData.id === d.id)) {
+        // Highlight stroke for featured points
+        if (isHighlighted && finalOpacity > 0.5) {
           ctx.globalAlpha = finalOpacity;
-          ctx.strokeStyle = selectedData && selectedData.id === d.id ? '#0066cc' : '#000000';
-          ctx.lineWidth = selectedData && selectedData.id === d.id ? 2 : 1;
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
       }
@@ -693,6 +693,11 @@
           );
           
           if (sectionIndex >= 0) {
+            // Check if this is the currently visible section
+            const isCurrentSection = sectionIndex === currentStateIndex;
+            const animationDelay = isCurrentSection ? 50 : 100; // Faster animation for current section
+            const animationDuration = isCurrentSection ? 400 : 600; // Shorter duration for clicks
+            
             // Animate the numbers with delay for smooth effect
             setTimeout(() => {
               createAnimatedNumber(
@@ -700,9 +705,9 @@
                 previousHousehold['Gross income'],
                 currentHousehold['Gross income'],
                 formatCurrency,
-                600
+                animationDuration
               );
-            }, 100);
+            }, animationDelay);
             
             setTimeout(() => {
               createAnimatedNumber(
@@ -710,9 +715,9 @@
                 previousHousehold['Total change in net income'],
                 currentHousehold['Total change in net income'],
                 formatDollarChange,
-                600
+                animationDuration
               );
-            }, 200);
+            }, animationDelay + 100);
             
             setTimeout(() => {
               createAnimatedNumber(
@@ -720,9 +725,9 @@
                 previousHousehold['Percentage change in net income'],
                 currentHousehold['Percentage change in net income'],
                 formatPercentage,
-                600
+                animationDuration
               );
-            }, 300);
+            }, animationDelay + 200);
           }
         }
       });
@@ -873,11 +878,29 @@
     }
     
     if (closestPoint) {
-      selectedData = closestPoint.data;
+      // If we're in an individual household view, update that section's household
+      const currentState = scrollStates[currentStateIndex];
+      if (currentState?.viewType === 'individual') {
+        const baseViewId = baseViews[Math.floor(currentStateIndex / 2)]?.id;
+        if (baseViewId) {
+          // Update the random household for this section with the clicked household
+          randomHouseholds[baseViewId] = closestPoint.data;
+          // Trigger reactivity
+          randomHouseholds = { ...randomHouseholds };
+        }
+      }
+      
       // Trigger re-render to show selection
       if (!isTransitioning) {
         renderVisualization();
       }
+    }
+  }
+
+  // Function to show household details for info icon
+  function showHouseholdDetails(household) {
+    if (household) {
+      selectedData = household;
     }
   }
 
@@ -928,7 +951,16 @@
               {#if randomHousehold}
                 {@const provisionBreakdown = getProvisionBreakdown(randomHousehold)}
                 <div class="household-profile">
-                  <h3>Individual household profile</h3>
+                  <h3>
+                    Individual household profile
+                    <button 
+                      class="info-icon" 
+                      on:click={() => showHouseholdDetails(randomHousehold)}
+                      title="Show detailed data for this household"
+                    >
+                      ⓘ
+                    </button>
+                  </h3>
                   <div class="household-summary">
                     <p>{generateHouseholdSummary(randomHousehold)}</p>
                   </div>
@@ -1167,6 +1199,35 @@
     font-weight: 700;
     color: var(--nyt-text-primary);
     margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .info-icon {
+    background: none;
+    border: 1px solid var(--nyt-border);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--nyt-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .info-icon:hover {
+    background-color: var(--nyt-hover);
+    color: var(--nyt-text-primary);
+    border-color: var(--nyt-text-secondary);
+  }
+
+  .info-icon:active {
+    transform: scale(0.95);
   }
 
   .household-summary {
