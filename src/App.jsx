@@ -108,10 +108,10 @@ const App = () => {
     const currentSectionIndex = Math.min(Math.floor(progress / sectionDuration), sections.length - 1);
     const sectionProgress = (progress % sectionDuration) / sectionDuration;
     
-    // First 70% of each section: show tooltip
-    // Last 30%: animate axis
-    const showTooltip = sectionProgress < 0.7;
-    const axisAnimationProgress = showTooltip ? 0 : (sectionProgress - 0.7) / 0.3;
+    // First 50% of each section: show tooltip
+    // Last 50%: animate axis
+    const showTooltip = sectionProgress < 0.5;
+    const axisAnimationProgress = showTooltip ? 0 : (sectionProgress - 0.5) / 0.5;
     
     let currentDataSection = currentSectionIndex;
     if (!showTooltip && currentSectionIndex < sections.length - 1) {
@@ -271,7 +271,7 @@ const App = () => {
       .style('stroke-dasharray', '4,4')
       .style('opacity', 0.7)
       .transition()
-      .duration(500)
+      .duration(1000)
       .ease(d3.easeQuadOut)
       .attr('x1', d => xScale(d))
       .attr('x2', d => xScale(d));
@@ -285,7 +285,7 @@ const App = () => {
 
     // X-axis shrinks fluidly via scroll-driven transition
     xAxisG.transition()
-      .duration(500)
+      .duration(1000)
       .ease(d3.easeQuadOut)
       .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
 
@@ -295,7 +295,7 @@ const App = () => {
       yTransitionDone.current = true;
       d3.select(yAxisG.node())
         .transition()
-        .duration(2000)
+        .duration(3000)
         .ease(d3.easeQuadIn)
         .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
     } else {
@@ -368,13 +368,13 @@ const App = () => {
       .on('mouseover', function(event, d) {
         d3.select(this)
           .transition()
-          .duration(500)
+          .duration(1000)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 6 : 4);
       })
       .on('mouseout', function(event, d) {
         d3.select(this)
           .transition()
-          .duration(500)
+          .duration(1000)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2);
       });
 
