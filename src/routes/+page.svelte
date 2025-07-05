@@ -24,7 +24,7 @@
       view: {
         xDomain: [-15, 15],
         yDomain: [0, 350000],
-        filter: d => d['Gross Income'] < 350000,
+        filter: d => d['Gross income'] < 350000,
         highlightGroup: null
       }
     },
@@ -35,7 +35,7 @@
       view: {
         xDomain: [-10, 20],
         yDomain: [50000, 150000],
-        filter: d => d['Gross Income'] >= 50000 && d['Gross Income'] < 150000,
+        filter: d => d['Gross income'] >= 50000 && d['Gross income'] < 150000,
         highlightGroup: 'middle'
       }
     },
@@ -46,7 +46,7 @@
       view: {
         xDomain: [-25, 25],
         yDomain: [150000, 400000],
-        filter: d => d['Gross Income'] >= 150000 && d['Gross Income'] < 400000,
+        filter: d => d['Gross income'] >= 150000 && d['Gross income'] < 400000,
         highlightGroup: 'upper-middle'
       }
     },
@@ -57,7 +57,7 @@
       view: {
         xDomain: [-40, 40], 
         yDomain: [400000, 1000000],
-        filter: d => d['Gross Income'] >= 400000 && d['Gross Income'] < 1000000,
+        filter: d => d['Gross income'] >= 400000 && d['Gross income'] < 1000000,
         highlightGroup: 'high'
       }
     },
@@ -68,7 +68,7 @@
       view: {
         xDomain: [-60, 60],
         yDomain: [1000000, 10000000],
-        filter: d => d['Gross Income'] >= 1000000,
+        filter: d => d['Gross income'] >= 1000000,
         highlightGroup: 'ultra'
       }
     }
@@ -125,8 +125,8 @@
           let closest = null;
           let minDistance = Infinity;
           filteredData.forEach(d => {
-            const dx = (d['Percentage Change in Net Income'] - centerX) / (baseView.view.xDomain[1] - baseView.view.xDomain[0]);
-            const dy = (d['Gross Income'] - centerY) / (baseView.view.yDomain[1] - baseView.view.yDomain[0]);
+            const dx = (d['Percentage change in net income'] - centerX) / (baseView.view.xDomain[1] - baseView.view.xDomain[0]);
+            const dy = (d['Gross income'] - centerY) / (baseView.view.yDomain[1] - baseView.view.yDomain[0]);
             const distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < minDistance) {
               minDistance = distance;
@@ -207,14 +207,14 @@
   function generateHouseholdSummary(household) {
     if (!household) return '';
     
-    const income = household['Gross Income'];
-    const baselineNetIncome = household['Baseline Net Income'];
-    const changeInNetIncome = household['Total Change in Net Income'];
-    const percentChange = household['Percentage Change in Net Income'];
-    const householdSize = household['Household Size'];
-    const isMarried = household['Is Married'];
-    const numDependents = household['Number of Dependents'];
-    const age = household['Age of Head'];
+    const income = household['Gross income'];
+    const baselineNetIncome = household['Baseline net income'];
+    const changeInNetIncome = household['Total change in net income'];
+    const percentChange = household['Percentage change in net income'];
+    const householdSize = household['Household size'];
+    const isMarried = household['Is married'];
+    const numDependents = household['Number of dependents'];
+    const age = household['Age of head'];
     const state = household['State'];
     
     const familyStructure = isMarried ? 
@@ -400,9 +400,9 @@
       const currentState = currentView;
       allRelevantData = data.filter(d => {
         // Include a much wider range so we can fade points in/out smoothly
-        return d['Gross Income'] >= 0 && d['Gross Income'] <= 15000000 &&
-               d['Percentage Change in Net Income'] >= -100 && 
-               d['Percentage Change in Net Income'] <= 100;
+        return d['Gross income'] >= 0 && d['Gross income'] <= 15000000 &&
+               d['Percentage change in net income'] >= -100 && 
+               d['Percentage change in net income'] <= 100;
       });
     }
 
@@ -445,8 +445,8 @@
 
     // Enhanced point rendering with smooth fade animations
     allRelevantData.forEach(d => {
-      const x = xScale(d['Percentage Change in Net Income']);
-      const y = yScale(d['Gross Income']);
+      const x = xScale(d['Percentage change in net income']);
+      const y = yScale(d['Gross income']);
       
       // Skip if outside canvas bounds
       if (x < margin.left || x > width - margin.right || y < margin.top || y > height - margin.bottom) return;
@@ -483,7 +483,7 @@
 
       // NYT color scheme
       let color;
-      const change = d['Percentage Change in Net Income'];
+      const change = d['Percentage change in net income'];
       if (Math.abs(change) < 0.1) {
         color = '#999999'; // gray for no change
       } else if (change > 0) {
@@ -661,8 +661,8 @@
             setTimeout(() => {
               createAnimatedNumber(
                 `gross-income-${sectionIndex}`,
-                previousHousehold['Gross Income'],
-                currentHousehold['Gross Income'],
+                previousHousehold['Gross income'],
+                currentHousehold['Gross income'],
                 formatCurrency,
                 600
               );
@@ -671,8 +671,8 @@
             setTimeout(() => {
               createAnimatedNumber(
                 `net-change-${sectionIndex}`,
-                previousHousehold['Total Change in Net Income'],
-                currentHousehold['Total Change in Net Income'],
+                previousHousehold['Total change in net income'],
+                currentHousehold['Total change in net income'],
                 formatDollarChange,
                 600
               );
@@ -681,8 +681,8 @@
             setTimeout(() => {
               createAnimatedNumber(
                 `percent-change-${sectionIndex}`,
-                previousHousehold['Percentage Change in Net Income'],
-                currentHousehold['Percentage Change in Net Income'],
+                previousHousehold['Percentage change in net income'],
+                currentHousehold['Percentage change in net income'],
                 formatPercentage,
                 600
               );
@@ -899,19 +899,19 @@
                     <div class="detail-item">
                       <span class="label">Gross income:</span>
                       <span class="value" id="gross-income-{i}">
-                        {formatCurrency(randomHousehold['Gross Income'])}
+                        {formatCurrency(randomHousehold['Gross income'])}
                       </span>
                     </div>
                     <div class="detail-item">
                       <span class="label">Net income change:</span>
-                      <span class="value {randomHousehold['Total Change in Net Income'] > 0 ? 'positive' : 'negative'}" id="net-change-{i}">
-                        {formatDollarChange(randomHousehold['Total Change in Net Income'])}
+                      <span class="value {randomHousehold['Total change in net income'] > 0 ? 'positive' : 'negative'}" id="net-change-{i}">
+                        {formatDollarChange(randomHousehold['Total change in net income'])}
                       </span>
                     </div>
                     <div class="detail-item">
                       <span class="label">Percentage change:</span>
-                      <span class="value {randomHousehold['Percentage Change in Net Income'] > 0 ? 'positive' : 'negative'}" id="percent-change-{i}">
-                        {formatPercentage(randomHousehold['Percentage Change in Net Income'])}
+                      <span class="value {randomHousehold['Percentage change in net income'] > 0 ? 'positive' : 'negative'}" id="percent-change-{i}">
+                        {formatPercentage(randomHousehold['Percentage change in net income'])}
                       </span>
                     </div>
                   </div>
