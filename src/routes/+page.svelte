@@ -262,12 +262,12 @@
     ];
     
     return provisions
-      .map(provision => ({
+      .map((provision, index) => ({
         name: provision.name,
-        value: household[provision.key] || 0
+        value: household[provision.key] || 0,
+        index: index // Add index for unique IDs
       }))
-      .filter(provision => Math.abs(provision.value) > 0.01) // Only show provisions with meaningful impact
-      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // Sort by absolute impact
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value)); // Sort by absolute impact, showing all
   }
 
   // Scroll handling with intersection observer pattern
@@ -616,29 +616,13 @@
         .style('font-size', '10px')
         .style('color', '#121212');
 
-      // Animate X-axis labels
-      xAxis.selectAll('text')
-        .style('opacity', 0)
-        .transition()
-        .delay((d, i) => i * 50)
-        .duration(400)
-        .style('opacity', 1);
-
-      // Y-axis with animated labels
+      // Y-axis with labels (no animation)
       const yAxis = g.append('g')
         .attr('transform', `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('$,')(d)))
         .style('font-family', 'Roboto Mono, monospace')
         .style('font-size', '10px')
         .style('color', '#121212');
-
-      // Animate Y-axis labels
-      yAxis.selectAll('text')
-        .style('opacity', 0)
-        .transition()
-        .delay((d, i) => i * 100)
-        .duration(500)
-        .style('opacity', 1);
 
       // Style axes lines
       xAxis.select('.domain').style('stroke', '#000000').style('stroke-width', 1);
@@ -728,6 +712,25 @@
                 animationDuration
               );
             }, animationDelay + 200);
+            
+            // Animate provision values
+            const currentProvisions = getProvisionBreakdown(currentHousehold);
+            const previousProvisions = getProvisionBreakdown(previousHousehold);
+            
+            currentProvisions.forEach((currentProv, provIndex) => {
+              const prevProv = previousProvisions.find(p => p.index === currentProv.index);
+              const prevValue = prevProv ? prevProv.value : 0;
+              
+              setTimeout(() => {
+                createAnimatedNumber(
+                  `provision-${sectionIndex}-${currentProv.index}`,
+                  prevValue,
+                  currentProv.value,
+                  formatDollarChange,
+                  animationDuration
+                );
+              }, animationDelay + 300 + (provIndex * 20)); // Stagger provision animations
+            });
           }
         }
       });
@@ -985,21 +988,19 @@
                     </div>
                   </div>
                   
-                  {#if provisionBreakdown.length > 0}
-                    <div class="provision-breakdown">
-                      <h4>Breakdown by provision</h4>
-                      <div class="provision-list">
-                        {#each provisionBreakdown as provision}
-                          <div class="provision-item">
-                            <span class="provision-name">{provision.name}:</span>
-                            <span class="provision-value {provision.value > 0 ? 'positive' : 'negative'}">
-                              {formatDollarChange(provision.value)}
-                            </span>
-                          </div>
-                        {/each}
-                      </div>
+                  <div class="provision-breakdown">
+                    <h4>Breakdown by provision</h4>
+                    <div class="provision-list">
+                      {#each provisionBreakdown as provision}
+                        <div class="provision-item">
+                          <span class="provision-name">{provision.name}:</span>
+                          <span class="provision-value {provision.value > 0 ? 'positive' : provision.value < 0 ? 'negative' : 'neutral'}" id="provision-{i}-{provision.index}">
+                            {formatDollarChange(provision.value)}
+                          </span>
+                        </div>
+                      {/each}
                     </div>
-                  {/if}
+                  </div>
                 </div>
               {/if}
             {/if}
@@ -1330,6 +1331,10 @@
 
   .provision-value.negative {
     color: var(--nyt-scatter-negative);
+  }
+
+  .provision-value.neutral {
+    color: var(--nyt-text-secondary);
   }
 
   /* Mobile responsive */
