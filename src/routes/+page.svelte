@@ -921,16 +921,16 @@
     // Find the closest point within click radius
     let closestPoint = null;
     let minDistance = Infinity;
-    const maxClickDistance = 8; // pixels
+    const maxClickDistance = 20; // Much larger click area
     
     for (const point of renderedPoints) {
-      if (point.opacity < 0.1) continue; // Skip nearly invisible points
+      if (point.opacity < 0.05) continue; // Skip nearly invisible points
       
       const dx = clickX - point.x;
       const dy = clickY - point.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance <= Math.max(point.radius, 4) + maxClickDistance && distance < minDistance) {
+      if (distance <= maxClickDistance && distance < minDistance) {
         minDistance = distance;
         closestPoint = point;
       }
