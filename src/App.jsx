@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import Papa from 'papaparse';
 import * as d3 from 'd3';
 
 const App = () => {
@@ -18,20 +17,15 @@ const App = () => {
     annotationTarget: { income: threshold * 0.5, percentChange: 0 }
   }));
 
-  // Load and process the CSV data
+  // Load and process the dataset
   useEffect(() => {
     const loadData = async () => {
       try {
         const response = await fetch(
-          `${import.meta.env.BASE_URL}household_tax_income_changes_senate_current_law_baseline.csv`
+          `${import.meta.env.BASE_URL}household_tax_income_changes_sample.json`
         );
-        const raw = await response.text();
-        const result = Papa.parse(raw, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true
-        });
-        const parsed = result.data.map((d, i) => ({
+        const json = await response.json();
+        const parsed = json.map((d, i) => ({
           ...d,
           id: i,
           isAnnotated: false,
@@ -42,8 +36,8 @@ const App = () => {
           let closest = null;
           let minDistance = Infinity;
           parsed.forEach(d => {
-            const dx = d['Percentage Change in Net Income'] - section.annotationTarget.percentChange;
-            const dy = d['Gross Income'] - section.annotationTarget.income;
+            const dx = d.pct_change - section.annotationTarget.percentChange;
+            const dy = d.income - section.annotationTarget.income;
             const distance = Math.abs(dx) + Math.abs(dy) / 1000;
             if (distance < minDistance) {
               minDistance = distance;
@@ -59,7 +53,7 @@ const App = () => {
         setData(parsed);
         setLoading(false);
       } catch (error) {
-        console.error('Error loading CSV data:', error);
+        console.error('Error loading data:', error);
         setLoading(false);
       }
     };
@@ -133,11 +127,11 @@ const App = () => {
     // Compute gain/loss stats for a section
     const computeStats = (i) => {
       const sec = sections[i];
-      const list = data.filter(d => d['Gross Income'] <= sec.threshold);
+      const list = data.filter(d => d.income <= sec.threshold);
       const total = list.length;
       if (!total) return { yMax: sec.threshold, gainedPercent: 0, lostPercent: 0, noChangePercent: 0 };
-      const gainCount = list.filter(d => d['Total Change in Net Income'] > 0).length;
-      const lossCount = list.filter(d => d['Total Change in Net Income'] < 0).length;
+      const gainCount = list.filter(d => d.net_change > 0).length;
+      const lossCount = list.filter(d => d.net_change < 0).length;
       const yMax = sec.threshold;
       const gainedPercent = Math.round((gainCount / total) * 100);
       const lostPercent = Math.round((lossCount / total) * 100);
@@ -326,7 +320,7 @@ const App = () => {
     const pointsGroup = g.append('g')
       .attr('clip-path', 'url(#plot-clip)');
 
-    const visibleData = data.filter(d => d['Gross Income'] <= interpolated.threshold * 1.2);
+    const visibleData = data.filter(d => d.income <= interpolated.threshold * 1.2);
 
     const points = pointsGroup.selectAll('.point')
       .data(visibleData, d => d.id);
@@ -335,16 +329,16 @@ const App = () => {
       .append('circle')
       .attr('class', 'point')
       .attr('r', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2)
-      .style('fill', d => d['Percentage Change in Net Income'] > 0 ? '#10b981' : '#ef4444')
+      .style('fill', d => d.pct_change > 0 ? '#10b981' : '#ef4444')
       .style('stroke', d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 'white' : 'none')
       .style('stroke-width', 2)
       .style('cursor', 'pointer')
       .merge(points)
-      .attr('cx', d => xScale(d['Percentage Change in Net Income']))
-      .attr('cy', d => distortY(d['Gross Income']))
+      .attr('cx', d => xScale(d.pct_change))
+      .attr('cy', d => distortY(d.income))
       .style('opacity', d => {
         if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) return 1;
-        const income = d['Gross Income'];
+        const income = d.income;
         if (income > interpolated.threshold) return 0.1;
         const fadeZone = interpolated.threshold * 0.2;
         if (income > interpolated.threshold - fadeZone) {
@@ -398,7 +392,7 @@ const App = () => {
       let pointToShow = selectedPoint;
       
       // Verify selected point is within current bounds
-      if (pointToShow && pointToShow['Gross Income'] > interpolated.threshold) {
+      if (pointToShow && pointToShow.income > interpolated.threshold) {
         pointToShow = null;
         setSelectedPoint(null);
       }
@@ -407,12 +401,12 @@ const App = () => {
         pointToShow = data.find(d => d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex);
       }
       
-      if (pointToShow && 
-          pointToShow['Percentage Change in Net Income'] >= interpolated.xMin && 
-          pointToShow['Percentage Change in Net Income'] <= interpolated.xMax &&
-          pointToShow['Gross Income'] <= interpolated.yMax) {
-        const x = xScale(pointToShow['Percentage Change in Net Income']);
-        const y = distortY(pointToShow['Gross Income']);
+      if (pointToShow &&
+          pointToShow.pct_change >= interpolated.xMin &&
+          pointToShow.pct_change <= interpolated.xMax &&
+          pointToShow.income <= interpolated.yMax) {
+        const x = xScale(pointToShow.pct_change);
+        const y = distortY(pointToShow.income);
         
         // Calculate tooltip position to avoid edges
         const tooltipX = x > plotWidth / 2 ? x - 260 : x + 20;
@@ -448,16 +442,16 @@ const App = () => {
             .attr('cy', y)
             .attr('r', 8)
             .style('fill', 'none')
-            .style('stroke', pointToShow['Percentage Change in Net Income'] > 0 ? '#10b981' : '#ef4444')
+            .style('stroke', pointToShow.pct_change > 0 ? '#10b981' : '#ef4444')
             .style('stroke-width', 2)
             .style('opacity', 0.5);
         }
 
         // Tooltip content
-        const income = d3.format('$,.0f')(pointToShow['Gross Income']);
-        const changeValue = pointToShow['Percentage Change in Net Income'];
+        const income = d3.format('$,.0f')(pointToShow.income);
+        const changeValue = pointToShow.pct_change;
         const change = (changeValue >= 0 ? '+' : '') + d3.format('.1%')(changeValue / 100);
-        const dollarValue = pointToShow['Total Change in Net Income'];
+        const dollarValue = pointToShow.net_change;
         const dollarChange = (dollarValue >= 0 ? '+' : '') + d3.format('$,.0f')(Math.abs(dollarValue));
         
         tooltipG.append('text')
