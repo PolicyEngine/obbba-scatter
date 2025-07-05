@@ -12,18 +12,62 @@
   let scrollContainer;
   let currentSectionIndex = 0;
 
-  const thresholds = [70000, 120000, 240000, 350000, 500000, 1000000, 2000000, 3000000, 5000000, 7000000];
-  const sections = [
-    { threshold: 70000, title: "Lower Income", description: "Households earning up to $70,000 show varied impacts from policy changes." },
-    { threshold: 120000, title: "Middle Income", description: "Middle-class families see mixed results, with some gaining and others losing." },
-    { threshold: 240000, title: "Upper Middle", description: "Higher earning households experience more significant changes." },
-    { threshold: 350000, title: "High Income", description: "Wealthy families face different policy implications." },
-    { threshold: 500000, title: "Very High Income", description: "The highest earners show distinct patterns." },
-    { threshold: 1000000, title: "Top 1%", description: "Millionaire households reveal unique policy effects." },
-    { threshold: 2000000, title: "Ultra-Wealthy", description: "Multi-millionaire families experience dramatic changes." },
-    { threshold: 3000000, title: "Elite Income", description: "The financial elite face substantial policy impacts." },
-    { threshold: 5000000, title: "Top 0.1%", description: "Extreme wealth brackets show exceptional patterns." },
-    { threshold: 7000000, title: "Highest Earners", description: "The very top income tier reveals policy extremes." }
+  const scrollStates = [
+    {
+      id: 'intro',
+      title: "How Tax Changes Affect Every American Household",
+      text: "Each dot represents a household, positioned by their income and how much they gain or lose under the proposed tax changes. Green dots show households that benefit, red shows those that face increases.",
+      view: {
+        xDomain: [-15, 15],
+        yDomain: [0, 350000],
+        filter: d => d['Gross Income'] < 350000,
+        highlightGroup: null
+      }
+    },
+    {
+      id: 'middle-class', 
+      title: "Middle-Class Families See Mixed Results",
+      text: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
+      view: {
+        xDomain: [-10, 20],
+        yDomain: [50000, 150000],
+        filter: d => d['Gross Income'] >= 50000 && d['Gross Income'] < 150000,
+        highlightGroup: 'middle'
+      }
+    },
+    {
+      id: 'upper-middle',
+      title: "Upper-Middle Class Faces the Biggest Swings", 
+      text: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
+      view: {
+        xDomain: [-25, 25],
+        yDomain: [150000, 400000],
+        filter: d => d['Gross Income'] >= 150000 && d['Gross Income'] < 400000,
+        highlightGroup: 'upper-middle'
+      }
+    },
+    {
+      id: 'high-earners',
+      title: "High Earners See Significant Increases",
+      text: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
+      view: {
+        xDomain: [-40, 40], 
+        yDomain: [400000, 1000000],
+        filter: d => d['Gross Income'] >= 400000 && d['Gross Income'] < 1000000,
+        highlightGroup: 'high'
+      }
+    },
+    {
+      id: 'ultra-wealthy',
+      title: "The Ultra-Wealthy Face the Largest Changes",
+      text: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
+      view: {
+        xDomain: [-60, 60],
+        yDomain: [1000000, 10000000],
+        filter: d => d['Gross Income'] >= 1000000,
+        highlightGroup: 'ultra'
+      }
+    }
   ];
 
   // Load data
@@ -44,24 +88,30 @@
         sectionIndex: null
       }));
 
-      // Find annotation points for each section
-      sections.forEach((section, index) => {
-        let closest = null;
-        let minDistance = Infinity;
-        data.forEach(d => {
-          if (d['Gross Income'] <= section.threshold) {
-            const dx = d['Percentage Change in Net Income'];
-            const dy = d['Gross Income'] - section.threshold * 0.5;
-            const distance = Math.abs(dx) + Math.abs(dy) / 1000;
+      // Find representative points for each scroll state
+      scrollStates.forEach((state, index) => {
+        const filteredData = data.filter(state.view.filter);
+        if (filteredData.length > 0) {
+          // Find a representative point near the center of the view
+          const centerY = (state.view.yDomain[0] + state.view.yDomain[1]) / 2;
+          const centerX = (state.view.xDomain[0] + state.view.xDomain[1]) / 2;
+          
+          let closest = null;
+          let minDistance = Infinity;
+          filteredData.forEach(d => {
+            const dx = (d['Percentage Change in Net Income'] - centerX) / (state.view.xDomain[1] - state.view.xDomain[0]);
+            const dy = (d['Gross Income'] - centerY) / (state.view.yDomain[1] - state.view.yDomain[0]);
+            const distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < minDistance) {
               minDistance = distance;
               closest = d;
             }
+          });
+          if (closest) {
+            closest.isHighlighted = true;
+            closest.highlightGroup = state.view.highlightGroup;
+            closest.stateIndex = index;
           }
-        });
-        if (closest) {
-          closest.isAnnotated = true;
-          closest.sectionIndex = index;
         }
       });
 
@@ -72,79 +122,173 @@
     }
   });
 
-  // Scroll handler
-  function handleScroll() {
-    if (!scrollContainer) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-    const maxScroll = scrollHeight - clientHeight;
-    scrollProgress = Math.min(scrollTop / maxScroll, 1);
-    
-    const sectionDuration = 1 / sections.length;
-    const newSectionIndex = Math.min(Math.floor(scrollProgress / sectionDuration), sections.length - 1);
-    
-    // Smooth transition between sections
-    if (newSectionIndex !== currentSectionIndex) {
-      currentSectionIndex = newSectionIndex;
+  // Scroll handling with intersection observer pattern
+  let textSections = [];
+  let currentStateIndex = 0;
+  let isTransitioning = false;
+  let intersectionObserver;
+
+  function setupIntersectionObserver() {
+    if (intersectionObserver) {
+      intersectionObserver.disconnect();
     }
-    
-    // Use requestAnimationFrame for smooth rendering
-    requestAnimationFrame(() => {
-      renderVisualization();
+
+    console.log('Setting up intersection observer with', textSections.length, 'sections');
+
+    // Find the text column element to use as root
+    const textColumn = document.querySelector('.text-column');
+    if (!textColumn) {
+      console.error('Text column not found for intersection observer');
+      return;
+    }
+
+    intersectionObserver = new IntersectionObserver(
+      (entries) => {
+        let mostVisibleEntry = null;
+        let maxRatio = 0;
+
+        entries.forEach((entry) => {
+          const index = parseInt(entry.target.dataset.index);
+          console.log(`Section ${index}: intersecting=${entry.isIntersecting}, ratio=${entry.intersectionRatio.toFixed(2)}`);
+          
+          if (entry.isIntersecting && entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisibleEntry = { entry, index };
+          }
+        });
+
+        if (mostVisibleEntry && mostVisibleEntry.index !== currentStateIndex && !isTransitioning) {
+          console.log(`Transitioning from ${currentStateIndex} to ${mostVisibleEntry.index}`);
+          transitionToState(mostVisibleEntry.index);
+        }
+      },
+      {
+        root: textColumn,
+        threshold: [0, 0.1, 0.3, 0.5, 0.7, 0.9, 1],
+        rootMargin: '-30% 0px -30% 0px'
+      }
+    );
+
+    // Observe all text sections
+    textSections.forEach((section, index) => {
+      if (section) {
+        section.dataset.index = index.toString();
+        intersectionObserver.observe(section);
+        console.log(`Observing section ${index}`);
+      }
     });
   }
 
-  function renderVisualization() {
+  function transitionToState(newIndex) {
+    if (newIndex === currentStateIndex || isTransitioning) {
+      console.log('Transition blocked:', { newIndex, currentStateIndex, isTransitioning });
+      return;
+    }
+    
+    console.log('Starting transition from', currentStateIndex, 'to', newIndex);
+    isTransitioning = true;
+    const fromState = scrollStates[currentStateIndex];
+    const toState = scrollStates[newIndex];
+    
+    console.log('From state:', fromState.id, 'To state:', toState.id);
+    
+    animateScales({
+      from: fromState.view,
+      to: toState.view,
+      duration: 800,
+      onComplete: () => {
+        console.log('Transition completed to state', newIndex);
+        currentStateIndex = newIndex;
+        isTransitioning = false;
+      }
+    });
+  }
+
+  function animateScales({ from, to, duration, onComplete }) {
+    const startTime = performance.now();
+    console.log('Animation started');
+    
+    function animate(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Cubic easing for smooth transitions
+      const eased = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      
+      console.log('Animation progress:', progress.toFixed(2), 'eased:', eased.toFixed(2));
+      renderVisualization(from, to, eased);
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        console.log('Animation complete');
+        onComplete();
+      }
+    }
+    
+    requestAnimationFrame(animate);
+  }
+
+  function renderVisualization(fromView = null, toView = null, t = 0) {
     if (!data.length || !canvasRef) return;
 
     const canvas = canvasRef;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     const width = canvas.width;
     const height = canvas.height;
-    const margin = { top: 50, right: 100, bottom: 50, left: 100 };
-    const plotWidth = width - margin.left - margin.right;
-    const plotHeight = height - margin.top - margin.bottom;
+    const margin = { top: 60, right: 100, bottom: 80, left: 100 };
 
-    // Get scroll state
-    const sectionDuration = 1 / sections.length;
-    const sectionProgress = (scrollProgress % sectionDuration) / sectionDuration;
-    const currentSection = sections[currentSectionIndex];
-    const nextSection = sections[Math.min(currentSectionIndex + 1, sections.length - 1)];
+    // Determine current view and interpolation
+    let currentView, targetView, interpolationT;
+    
+    if (isTransitioning && fromView !== null && toView !== null) {
+      currentView = fromView;
+      targetView = toView;
+      interpolationT = t;
+    } else {
+      currentView = scrollStates[currentStateIndex].view;
+      targetView = currentView;
+      interpolationT = 0;
+    }
 
-    // Smooth interpolation between sections
-    const t = Math.min(sectionProgress, 1);
-    const threshold = d3.interpolate(currentSection.threshold, nextSection.threshold)(t);
-    const xDomainMax = d3.interpolate(40 - (currentSectionIndex * 2), 40 - (Math.min(currentSectionIndex + 1, sections.length - 1) * 2))(t);
+    // Interpolate between views with D3
+    const yMin = d3.interpolate(currentView.yDomain[0], targetView.yDomain[0])(interpolationT);
+    const yMax = d3.interpolate(currentView.yDomain[1], targetView.yDomain[1])(interpolationT);
+    const xMin = d3.interpolate(currentView.xDomain[0], targetView.xDomain[0])(interpolationT);
+    const xMax = d3.interpolate(currentView.xDomain[1], targetView.xDomain[1])(interpolationT);
     
-    // Clear canvas with smooth background
-    ctx.clearRect(0, 0, width, height);
-    
-    // Draw subtle gradient background
-    const gradient = ctx.createLinearGradient(0, 0, 0, height);
-    gradient.addColorStop(0, '#f8fafc');
-    gradient.addColorStop(1, '#f1f5f9');
-    ctx.fillStyle = gradient;
+    // Clear canvas with NYT-style background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    // Get visible data with smooth transition
-    const visibleData = data.filter(d => d['Gross Income'] <= threshold * 1.1);
+    // Filter data based on current view
+    const currentState = isTransitioning ? targetView : currentView;
+    const visibleData = data.filter(currentState.filter || (d => 
+      d['Gross Income'] >= yMin && 
+      d['Gross Income'] <= yMax && 
+      d['Percentage Change in Net Income'] >= xMin && 
+      d['Percentage Change in Net Income'] <= xMax
+    ));
 
     // Create scales
     const xScale = d3.scaleLinear()
-      .domain([-xDomainMax, xDomainMax])
+      .domain([xMin, xMax])
       .range([margin.left, width - margin.right]);
 
     const yScale = d3.scaleLinear()
-      .domain([0, threshold])
+      .domain([yMin, yMax])
       .range([height - margin.bottom, margin.top]);
 
-    // Draw grid lines
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([3, 3]);
+    // Draw NYT-style grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([]);
     
     // Vertical grid lines
-    for (let i = -xDomainMax; i <= xDomainMax; i += 10) {
+    const xTickInterval = Math.max(5, Math.floor((xMax - xMin) / 10));
+    for (let i = Math.ceil(xMin / xTickInterval) * xTickInterval; i <= xMax; i += xTickInterval) {
       const x = xScale(i);
       ctx.beginPath();
       ctx.moveTo(x, margin.top);
@@ -153,7 +297,7 @@
     }
     
     // Horizontal grid lines
-    const yTicks = yScale.ticks(8);
+    const yTicks = yScale.ticks(6);
     yTicks.forEach(tick => {
       const y = yScale(tick);
       ctx.beginPath();
@@ -162,13 +306,7 @@
       ctx.stroke();
     });
 
-    ctx.setLineDash([]);
-
-    // Optimized point rendering with batching
-    const positivePoints = [];
-    const negativePoints = [];
-    const highlightedPoints = [];
-
+    // NYT-style point rendering with proper colors
     visibleData.forEach(d => {
       const x = xScale(d['Percentage Change in Net Income']);
       const y = yScale(d['Gross Income']);
@@ -176,79 +314,50 @@
       // Skip if outside canvas bounds
       if (x < margin.left || x > width - margin.right || y < margin.top || y > height - margin.bottom) return;
 
-      // Calculate opacity with smooth easing
-      const income = d['Gross Income'];
-      let opacity = 0.7;
-      if (income > threshold) {
-        opacity = 0.1;
-      } else if (income > threshold * 0.8) {
-        const fadeProgress = (income - threshold * 0.8) / (threshold * 0.2);
-        // Use easing function for smooth fade
-        const easedProgress = fadeProgress * fadeProgress * (3 - 2 * fadeProgress);
-        opacity = 0.7 * (1 - easedProgress);
-      }
-
-      const radius = d.isAnnotated && d.sectionIndex === currentSectionIndex ? 4 : 1.5;
-      const point = { x, y, radius, opacity };
-
-      if (d.isAnnotated && d.sectionIndex === currentSectionIndex) {
-        highlightedPoints.push(point);
-      } else if (d['Percentage Change in Net Income'] > 0) {
-        positivePoints.push(point);
+      // NYT color scheme
+      let color;
+      const change = d['Percentage Change in Net Income'];
+      if (Math.abs(change) < 0.1) {
+        color = '#999999'; // gray for no change
+      } else if (change > 0) {
+        color = '#1a9658'; // green for gains
       } else {
-        negativePoints.push(point);
+        color = '#d75442'; // red for losses
       }
-    });
 
-    // Batch render positive points
-    ctx.fillStyle = '#10b981';
-    positivePoints.forEach(point => {
-      ctx.globalAlpha = point.opacity;
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, point.radius, 0, 2 * Math.PI);
-      ctx.fill();
-    });
+      // Point sizing and opacity
+      const isHighlighted = d.isHighlighted && d.stateIndex === currentStateIndex;
+      const radius = isHighlighted ? 4 : 2;
+      const opacity = isHighlighted ? 1 : 0.6;
 
-    // Batch render negative points
-    ctx.fillStyle = '#ef4444';
-    negativePoints.forEach(point => {
-      ctx.globalAlpha = point.opacity;
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(point.x, point.y, point.radius, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    // Render highlighted points with animation
-    highlightedPoints.forEach(point => {
-      ctx.globalAlpha = 1;
-      
-      // Pulsing effect for highlighted points
-      const pulseRadius = point.radius + Math.sin(Date.now() * 0.005) * 0.5;
-      
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, pulseRadius, 0, 2 * Math.PI);
-      ctx.fillStyle = '#3b82f6';
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
       ctx.fill();
 
-      // White outline
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, pulseRadius + 2, 0, 2 * Math.PI);
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // Highlight stroke for featured points
+      if (isHighlighted) {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     });
 
     ctx.globalAlpha = 1;
 
-    // Draw zero line
-    ctx.strokeStyle = '#1f2937';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(xScale(0), margin.top);
-    ctx.lineTo(xScale(0), height - margin.bottom);
-    ctx.stroke();
+    // Draw zero line (NYT style)
+    if (xMin <= 0 && xMax >= 0) {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(xScale(0), margin.top);
+      ctx.lineTo(xScale(0), height - margin.bottom);
+      ctx.stroke();
+    }
 
-    // Draw axes using SVG overlay
+    // Draw axes using SVG overlay (NYT style)
     if (svgRef) {
       const svg = d3.select(svgRef);
       svg.selectAll('*').remove();
@@ -256,41 +365,155 @@
       const g = svg.append('g');
 
       // X-axis
-      g.append('g')
+      const xAxis = g.append('g')
         .attr('transform', `translate(0,${height - margin.bottom})`)
-        .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`))
-        .style('font-family', 'system-ui, -apple-system, sans-serif')
-        .style('font-size', '12px');
+        .call(d3.axisBottom(xScale).tickFormat(d => `${d > 0 ? '+' : ''}${d}%`))
+        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-size', '11px')
+        .style('color', '#121212');
 
-      // Y-axis
-      g.append('g')
+      // Y-axis  
+      const yAxis = g.append('g')
         .attr('transform', `translate(${margin.left},0)`)
-        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`))
-        .style('font-family', 'system-ui, -apple-system, sans-serif')
-        .style('font-size', '12px');
+        .call(d3.axisLeft(yScale).ticks(6).tickFormat(d => d3.format('$,')(d)))
+        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-size', '11px')
+        .style('color', '#121212');
 
-      // Axis labels
+      // Style axes lines
+      xAxis.select('.domain').style('stroke', '#000000').style('stroke-width', 1);
+      yAxis.select('.domain').style('stroke', '#000000').style('stroke-width', 1);
+      
+      // Style tick lines
+      xAxis.selectAll('.tick line').style('stroke', '#000000').style('stroke-width', 0.5);
+      yAxis.selectAll('.tick line').style('stroke', '#000000').style('stroke-width', 0.5);
+
+      // Axis labels (NYT style)
       g.append('text')
         .attr('x', width / 2)
-        .attr('y', height - 10)
+        .attr('y', height - 15)
         .attr('text-anchor', 'middle')
-        .style('font-size', '14px')
-        .style('font-weight', '500')
-        .text('Percentage Change in Net Income');
+        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-size', '12px')
+        .style('font-weight', '400')
+        .style('fill', '#666666')
+        .text('Change in income →');
 
       g.append('text')
         .attr('transform', 'rotate(-90)')
         .attr('x', -height / 2)
-        .attr('y', 20)
+        .attr('y', 25)
         .attr('text-anchor', 'middle')
-        .style('font-size', '14px')
-        .style('font-weight', '500')
-        .text('Gross Income ($)');
+        .style('font-family', 'nyt-franklin, helvetica, arial, sans-serif')
+        .style('font-size', '12px')
+        .style('font-weight', '400')
+        .style('fill', '#666666')
+        .text('← Annual household income');
     }
   }
 
-  $: if (data.length && canvasRef) {
+  // Reactive statements for rendering
+  $: if (data.length && canvasRef && !isTransitioning) {
     renderVisualization();
+  }
+
+  // Initialize text sections and intersection observer
+  onMount(() => {
+    textSections = new Array(scrollStates.length);
+    
+    // Set up intersection observer after DOM is ready
+    setTimeout(() => {
+      setupIntersectionObserver();
+      // Initial render
+      if (data.length && canvasRef) {
+        renderVisualization();
+      }
+    }, 200);
+    
+    return () => {
+      if (intersectionObserver) {
+        intersectionObserver.disconnect();
+      }
+    };
+  });
+
+  // Throttled scroll handler
+  let scrollTimeout;
+  function handleScroll(event) {
+    if (!textSections.length) return;
+    
+    // Throttle scroll events
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      checkActiveSection(event.target);
+    }, 50);
+  }
+
+  function checkActiveSection(container) {
+    if (isTransitioning) return;
+    
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    
+    console.log('Checking active section - scrollTop:', scrollTop);
+    
+    // Always query sections directly from DOM for reliability
+    const domSections = container.querySelectorAll('.text-section');
+    const sectionsToCheck = Array.from(domSections);
+    console.log('Found sections via DOM query:', sectionsToCheck.length);
+    
+    console.log('Sections to check:', sectionsToCheck.map((s, i) => ({ index: i, exists: !!s, tagName: s?.tagName })));
+    
+    // Simple approach: find which section's top is closest to being in view
+    let activeSection = 0;
+    let minDistance = Infinity;
+    let sectionsFound = 0;
+    
+    sectionsToCheck.forEach((section, index) => {
+      console.log(`Checking section ${index}:`, section, 'exists:', !!section, 'type:', typeof section);
+      
+      if (section) {
+        sectionsFound++;
+        const rect = section.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        
+        console.log(`Section ${index} rects:`, { 
+          section: { top: rect.top, height: rect.height }, 
+          container: { top: containerRect.top, height: containerRect.height }
+        });
+        
+        // Calculate absolute position in the scrollable area
+        const sectionTop = rect.top - containerRect.top + scrollTop;
+        const sectionCenter = sectionTop + rect.height / 2;
+        const viewportCenter = scrollTop + containerHeight / 2;
+        
+        // Distance from section center to viewport center
+        const distance = Math.abs(sectionCenter - viewportCenter);
+        
+        console.log(`Section ${index}: top=${sectionTop.toFixed(0)}, center=${sectionCenter.toFixed(0)}, distance=${distance.toFixed(0)}`);
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          activeSection = index;
+        }
+      } else {
+        console.log(`Section ${index}: null/undefined`);
+      }
+    });
+    
+    console.log(`Found ${sectionsFound} valid sections. Closest section:`, activeSection, 'distance:', minDistance === Infinity ? 'Infinity' : minDistance.toFixed(0));
+    
+    if (activeSection !== currentStateIndex && minDistance !== Infinity) {
+      console.log('Transitioning from', currentStateIndex, 'to', activeSection);
+      transitionToState(activeSection);
+    }
+  }
+
+  // Watch for text sections being bound
+  $: if (textSections.length > 0 && textSections.every(el => el)) {
+    setTimeout(() => {
+      setupIntersectionObserver();
+    }, 50);
   }
 </script>
 
@@ -313,75 +536,97 @@
     </div>
   {/if}
 
-  <div class="scroll-container" bind:this={scrollContainer} on:scroll={handleScroll}>
-    <div class="content" style="height: {sections.length * 150}vh;">
-      <div class="visualization-container">
+  <div class="nyt-container">
+    <!-- NYT-style layout: text on left, viz on right -->
+    <div class="text-column" on:scroll={handleScroll}>
+      {#each scrollStates as state, i}
+        <section 
+          class="text-section" 
+          class:active={i === currentStateIndex}
+          bind:this={textSections[i]}
+          data-index={i}
+        >
+          <div class="section-content">
+            <h2>{state.title}</h2>
+            <p>{@html state.text}</p>
+          </div>
+        </section>
+      {/each}
+    </div>
+    
+    <div class="viz-column">
+      <div class="viz-sticky">
         <canvas 
           bind:this={canvasRef} 
-          width="1200" 
+          width="800" 
           height="600"
           class="main-canvas"
         ></canvas>
         <svg 
           bind:this={svgRef} 
-          width="1200" 
+          width="800" 
           height="600"
           class="overlay-svg"
         ></svg>
         
-        <div class="narrative-panel">
-          <div class="narrative-content">
-            <h2>{sections[currentSectionIndex]?.title}</h2>
-            <p>{sections[currentSectionIndex]?.description}</p>
-            <div class="progress-indicator">
-              <div class="progress-bar" style="width: {(currentSectionIndex + 1) / sections.length * 100}%"></div>
-            </div>
-            <div class="section-counter">
-              {currentSectionIndex + 1} of {sections.length}
-            </div>
+        <!-- Debug controls -->
+        <div class="debug-controls">
+          <p>Current State: {currentStateIndex} - {scrollStates[currentStateIndex]?.id}</p>
+          <p>Is Transitioning: {isTransitioning}</p>
+          <p>Text Sections: {textSections.filter(el => el).length} / {textSections.length}</p>
+          <p>Observer: {intersectionObserver ? 'Active' : 'Inactive'}</p>
+          <div>
+            {#each scrollStates as state, i}
+              <button on:click={() => transitionToState(i)} class:active={i === currentStateIndex}>
+                {i}: {state.id}
+              </button>
+            {/each}
           </div>
+          <button on:click={() => console.log('Text sections:', textSections)}>
+            Log Sections
+          </button>
         </div>
-
-        <!-- Floating narrative sections -->
-        {#each sections as section, i}
-          <div 
-            class="floating-narrative" 
-            class:active={i === currentSectionIndex}
-            style="top: {20 + i * 60}px; right: 20px;"
-          >
-            <div class="narrative-dot"></div>
-            <div class="narrative-text">
-              <h3>{section.title}</h3>
-              <p>{d3.format('$,')(section.threshold)}</p>
-            </div>
-          </div>
-        {/each}
       </div>
     </div>
   </div>
 </div>
 
 <style>
+  :root {
+    --nyt-background: #ffffff;
+    --nyt-text-primary: #121212;
+    --nyt-text-secondary: #666666;
+    --nyt-scatter-positive: #1a9658;
+    --nyt-scatter-negative: #d75442;
+    --nyt-scatter-neutral: #999999;
+    --nyt-font-sans: nyt-franklin, helvetica, arial, sans-serif;
+  }
+
   .app {
     width: 100%;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    background: var(--nyt-background);
+    font-family: var(--nyt-font-sans);
   }
 
   .loading {
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     text-align: center;
-    z-index: 10;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 40px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
 
   .spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid var(--nyt-text-secondary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 20px;
@@ -392,138 +637,140 @@
     100% { transform: rotate(360deg); }
   }
 
-  .scroll-container {
-    width: 100%;
+  .nyt-container {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .text-column {
+    flex: 0 0 40%;
+    background: var(--nyt-background);
     height: 100vh;
     overflow-y: auto;
-    overflow-x: hidden;
   }
 
-  .content {
-    position: relative;
+  .viz-column {
+    flex: 0 0 60%;
+    background: var(--nyt-background);
   }
 
-  .visualization-container {
+  .viz-sticky {
     position: sticky;
-    top: 0;
-    width: 100%;
-    height: 100vh;
+    top: 60px;
+    height: calc(100vh - 120px);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
+    padding: 20px;
   }
 
   .main-canvas {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background: var(--nyt-background);
+    border: 1px solid #e0e0e0;
   }
 
   .overlay-svg {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     pointer-events: none;
   }
 
-  .narrative-panel {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 300px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-    transition: all 0.3s ease;
-  }
-
-  .narrative-content h2 {
-    margin: 0 0 16px 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: #1f2937;
-  }
-
-  .narrative-content p {
-    margin: 0 0 20px 0;
-    font-size: 16px;
-    line-height: 1.5;
-    color: #4b5563;
-  }
-
-  .progress-indicator {
-    width: 100%;
-    height: 4px;
-    background: #e5e7eb;
-    border-radius: 2px;
-    overflow: hidden;
-    margin-bottom: 12px;
-  }
-
-  .progress-bar {
-    height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #10b981);
-    transition: width 0.3s ease;
-  }
-
-  .section-counter {
-    font-size: 14px;
-    color: #6b7280;
-    font-weight: 500;
-  }
-
-  .floating-narrative {
-    position: absolute;
+  .text-section {
+    min-height: 60vh;
+    padding: 3rem 2rem;
     display: flex;
     align-items: center;
-    opacity: 0.4;
-    transition: all 0.3s ease;
-    pointer-events: none;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.3s ease;
   }
 
-  .floating-narrative.active {
-    opacity: 1;
-    transform: scale(1.1);
+  .text-section.active {
+    background: #f8f9fa;
   }
 
-  .narrative-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #6b7280;
-    margin-right: 12px;
-    transition: all 0.3s ease;
+  .section-content {
+    max-width: 500px;
   }
 
-  .floating-narrative.active .narrative-dot {
-    background: #3b82f6;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  .text-section h2 {
+    font-family: var(--nyt-font-sans);
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--nyt-text-primary);
+    margin: 0 0 1rem 0;
   }
 
-  .narrative-text {
-    background: rgba(255, 255, 255, 0.9);
-    padding: 8px 12px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .narrative-text h3 {
-    margin: 0 0 4px 0;
-    font-size: 12px;
-    font-weight: 600;
-    color: #1f2937;
-  }
-
-  .narrative-text p {
+  .text-section p {
+    font-family: var(--nyt-font-sans);
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--nyt-text-secondary);
     margin: 0;
-    font-size: 10px;
-    color: #6b7280;
   }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .nyt-container {
+      flex-direction: column;
+    }
+    
+    .text-column {
+      flex: none;
+      order: 2;
+    }
+    
+    .viz-column {
+      flex: none;
+      order: 1;
+    }
+    
+    .viz-sticky {
+      position: relative;
+      top: 0;
+      height: 50vh;
+    }
+    
+    .main-canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    
+    .text-section {
+      min-height: 40vh;
+      padding: 2rem 1rem;
+    }
+    
+    .text-section h2 {
+      font-size: 1.5rem;
+    }
+    
+    .text-section p {
+      font-size: 1rem;
+    }
+  }
+
+  .debug-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border: 1px solid #ccc;
+    font-size: 12px;
+  }
+
+  .debug-controls button {
+    margin: 2px;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+  }
+
+  .debug-controls button.active {
+    background: #007bff;
+    color: white;
+  }
+
 </style>
