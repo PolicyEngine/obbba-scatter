@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Papa from 'papaparse';
 import * as d3 from 'd3';
 
@@ -7,8 +7,18 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState(null);
+  const [randomHouseholds, setRandomHouseholds] = useState({});
   const svgRef = useRef(null);
   const scrollContainerRef = useRef(null);
+  const animatedNumbersRef = useRef(new Map());
+
+  // BASIC DEBUG
+  console.log('APP COMPONENT RENDERING');
+  
+  useEffect(() => {
+    console.log('APP MOUNTED');
+    alert('App is loading - if you see this, React is working');
+  }, []);
 
   // Define the sections with their income thresholds and messages
   const thresholds = [70000, 120000, 240000, 350000, 500000, 1000000, 2000000, 3000000, 5000000, 7000000];
@@ -17,6 +27,35 @@ const App = () => {
     title: `Annotation ${i + 1}`,
     annotationTarget: { income: threshold * 0.5, percentChange: 0 }
   }));
+
+  // Animated number utility function
+  const createAnimatedNumber = useCallback((element, startValue, endValue, formatter, duration = 800) => {
+    const key = `${element.attr('id') || Math.random()}`;
+    
+    // Cancel any existing animation for this element
+    if (animatedNumbersRef.current.has(key)) {
+      animatedNumbersRef.current.get(key).interrupt();
+    }
+    
+    const interpolator = d3.interpolate(startValue, endValue);
+    const transition = d3.transition().duration(duration).ease(d3.easeCubicOut);
+    
+    const animation = transition.tween('text', () => {
+      return (t) => {
+        const value = interpolator(t);
+        element.text(formatter(value));
+      };
+    });
+    
+    animatedNumbersRef.current.set(key, animation);
+    return animation;
+  }, []);
+
+  // Enhanced formatting functions with animation support
+  const formatCurrency = useCallback((value) => d3.format('$,.0f')(value), []);
+  const formatPercentage = useCallback((value) => (value >= 0 ? '+' : '') + d3.format('.1%')(value / 100), []);
+  const formatDollarChange = useCallback((value) => (value >= 0 ? '+' : '') + d3.format('$,.0f')(Math.abs(value)), []);
+  const formatInteger = useCallback((value) => Math.round(value), []);
 
   // Load and process the CSV data
   useEffect(() => {
@@ -56,7 +95,18 @@ const App = () => {
           }
         });
 
+        // Select random households for each section
+        const randomHouseholdsMap = {};
+        sections.forEach((section, index) => {
+          const householdsInSection = parsed.filter(d => d['Gross Income'] <= section.threshold);
+          if (householdsInSection.length > 0) {
+            const randomIndex = Math.floor(Math.random() * householdsInSection.length);
+            randomHouseholdsMap[index] = householdsInSection[randomIndex];
+          }
+        });
+
         setData(parsed);
+        setRandomHouseholds(randomHouseholdsMap);
         setLoading(false);
       } catch (error) {
         console.error('Error loading CSV data:', error);
@@ -72,11 +122,53 @@ const App = () => {
     const scrollState = getScrollState(scrollProgress);
     
     // Clear selection when moving to a new section or during axis animation
-    if (selectedPoint && !scrollState.showTooltip) {
+    if (selectedPoint && !scrollState.showGroupView) {
       setSelectedPoint(null);
     }
   }, [scrollProgress]);
 
+  // Generate prose summary for a household with animated numbers
+  const generateHouseholdSummary = (household, previousHousehold = null) => {
+    if (!household) return '';
+    
+    const income = household['Gross Income'];
+    const baselineNetIncome = household['Baseline Net Income'];
+    const changeInNetIncome = household['Total Change in Net Income'];
+    const percentChange = household['Percentage Change in Net Income'];
+    const householdSize = household['Household Size'];
+    const isMarried = household['Is Married'];
+    const numDependents = household['Number of Dependents'];
+    const age = household['Age of Head'];
+    const state = household['State'];
+    
+    const familyStructure = isMarried ? 
+      (numDependents > 0 ? `married couple with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'married couple') :
+      (numDependents > 0 ? `single parent with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'single person');
+    
+    const incomeDescription = income < 50000 ? 'low-income' :
+                            income < 100000 ? 'middle-income' :
+                            income < 500000 ? 'upper-middle-income' : 'high-income';
+    
+    const changeDescription = Math.abs(changeInNetIncome) < 100 ? 'minimal' :
+                            Math.abs(changeInNetIncome) < 1000 ? 'modest' :
+                            Math.abs(changeInNetIncome) < 5000 ? 'significant' : 'substantial';
+    
+    const gainOrLoss = changeInNetIncome > 0 ? 'gains' : 'loses';
+    
+    return {
+      staticText: `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. 
+      
+      Under the baseline tax system, this household has a gross income of `,
+      income: income,
+      midText: ` and a net income of `,
+      baselineNetIncome: baselineNetIncome,
+      endText: `.
+      
+      After the proposed tax reforms, this household ${gainOrLoss} `,
+      changeInNetIncome: Math.abs(changeInNetIncome),
+      finalText: ` annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`
+    };
+  };
 
   // Handle scroll events
   useEffect(() => {
@@ -87,6 +179,7 @@ const App = () => {
       const maxScroll = scrollHeight - clientHeight;
       const progress = Math.min(scrollTop / maxScroll, 1);
       
+      console.log('SCROLL EVENT:', scrollTop, maxScroll, progress);
       setScrollProgress(progress);
     };
 
@@ -103,23 +196,39 @@ const App = () => {
     const currentSectionIndex = Math.min(Math.floor(progress / sectionDuration), sections.length - 1);
     const sectionProgress = (progress % sectionDuration) / sectionDuration;
     
-    // First 70% of each section: show tooltip
-    // Last 30%: animate axis
-    const showTooltip = sectionProgress < 0.7;
-    const axisAnimationProgress = showTooltip ? 0 : (sectionProgress - 0.7) / 0.3;
+    // Split each section into two parts:
+    // First 50% of each section: show group view with tooltip
+    // Next 30%: show individual household view with fade transition
+    // Last 20%: animate axis
+    const showGroupView = sectionProgress < 0.5;
+    const showIndividualView = sectionProgress >= 0.5 && sectionProgress < 0.8;
+    const axisAnimationProgress = sectionProgress >= 0.8 ? (sectionProgress - 0.8) / 0.2 : 0;
+    
+    // Calculate fade opacity for transition between group and individual view
+    const individualTransitionProgress = showIndividualView ? (sectionProgress - 0.5) / 0.3 : 0;
+    const groupFadeOpacity = showIndividualView ? Math.max(0.1, 1 - individualTransitionProgress) : 1;
     
     let currentDataSection = currentSectionIndex;
-    if (!showTooltip && currentSectionIndex < sections.length - 1) {
+    if (axisAnimationProgress > 0 && currentSectionIndex < sections.length - 1) {
       currentDataSection = currentSectionIndex + axisAnimationProgress;
     }
     
-    return {
+    const result = {
       currentSectionIndex,
-      showTooltip,
+      showGroupView,
+      showIndividualView,
       axisAnimationProgress,
       currentDataSection,
-      sectionProgress
+      sectionProgress,
+      individualTransitionProgress,
+      groupFadeOpacity
     };
+    
+    // Debug output
+    console.log('Section progress:', sectionProgress.toFixed(3), 'Show individual:', showIndividualView);
+    console.log('Progress:', progress, 'Current section:', currentSectionIndex);
+    
+    return result;
   };
 
   // Fixed X-axis domains for first three sections, shrinking to [-20,20] thereafter
@@ -194,6 +303,9 @@ const App = () => {
 
     // Clear previous content
     svg.selectAll('*').remove();
+    
+    // BASIC DEBUG - THIS SHOULD ALWAYS SHOW
+    console.log('VISUALIZATION RENDER CALLED!');
 
     // Get current scroll state
     const scrollState = getScrollState(scrollProgress);
@@ -278,23 +390,40 @@ const App = () => {
     const xAxisG = g.append('g')
       .attr('transform', `translate(0,${plotHeight})`);
 
-    // X-axis shrinks fluidly via scroll-driven transition
+    // X-axis with animated numbers
     xAxisG.transition()
       .duration(100)
       .ease(d3.easeQuadOut)
-      .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
+      .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`))
+      .selectAll('text')
+      .style('opacity', 0)
+      .transition()
+      .delay(50)
+      .duration(300)
+      .style('opacity', 1);
 
     const yAxisG = g.append('g');
-    // Y-axis stretch transition only upon first crossing from section 0 → 1
+    // Y-axis with animated numbers
     if (prevSectionRef.current === 0 && scrollState.currentSectionIndex === 1 && !yTransitionDone.current) {
       yTransitionDone.current = true;
       d3.select(yAxisG.node())
         .transition()
         .duration(2000)
         .ease(d3.easeQuadIn)
-        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
+        .call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`))
+        .selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .delay(500)
+        .duration(800)
+        .style('opacity', 1);
     } else {
-      yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`));
+      yAxisG.call(d3.axisLeft(yScale).ticks(8).tickFormat(d => `${d3.format(',')(d)}`))
+        .selectAll('text')
+        .style('opacity', 0)
+        .transition()
+        .duration(400)
+        .style('opacity', 1);
     }
 
     // Add vertical line at x=0
@@ -343,19 +472,36 @@ const App = () => {
       .attr('cx', d => xScale(d['Percentage Change in Net Income']))
       .attr('cy', d => distortY(d['Gross Income']))
       .style('opacity', d => {
+        // Special highlighting for current section's annotated point
         if (d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex) return 1;
+        
+        // Handle random household highlighting during individual view
+        const randomHousehold = randomHouseholds[scrollState.currentSectionIndex];
+        const isRandomHousehold = randomHousehold && d.id === randomHousehold.id;
+        
+        if (scrollState.showIndividualView && isRandomHousehold) {
+          return 1; // Highlight the random household
+        }
+        
+        // Apply group fade opacity during individual view transition
+        let baseOpacity = 0.6;
+        if (scrollState.showIndividualView && !isRandomHousehold) {
+          baseOpacity *= scrollState.groupFadeOpacity;
+        }
+        
+        // Standard income-based fading
         const income = d['Gross Income'];
         if (income > interpolated.threshold) return 0.1;
         const fadeZone = interpolated.threshold * 0.2;
         if (income > interpolated.threshold - fadeZone) {
-          return 0.6 * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
+          return baseOpacity * (1 - (income - (interpolated.threshold - fadeZone)) / fadeZone);
         }
-        return 0.6;
+        return baseOpacity;
       })
       .on('click', function(event, d) {
         event.stopPropagation();
-        // Only allow selection if tooltip is visible
-        if (scrollState.showTooltip) {
+        // Only allow selection if group view is visible
+        if (scrollState.showGroupView) {
           // Force update by creating new object reference
           setSelectedPoint({ ...d });
         }
@@ -375,14 +521,34 @@ const App = () => {
 
     points.exit().remove();
 
-    // Add title
-    svg.append('text')
+    // Add title with animated statistics
+    const titleElement = svg.append('text')
       .attr('x', width / 2)
       .attr('y', 20)
       .attr('text-anchor', 'middle')
       .style('font-size', '16px')
       .style('font-weight', 'bold')
-      .text(`Gained Money ${interpolated.gainedPercent}%  Lost Money ${interpolated.lostPercent}%  No Change ${interpolated.noChangePercent}%`);
+      .attr('id', 'title-stats');
+
+    // Get previous values for animation
+    const prevStats = titleElement.datum() || { gainedPercent: 0, lostPercent: 0, noChangePercent: 0 };
+    
+    // Store current values for next animation
+    titleElement.datum(interpolated);
+    
+    // Animate the title text
+    const titleFormatter = (data) => `Gained Money ${formatInteger(data.gainedPercent)}%  Lost Money ${formatInteger(data.lostPercent)}%  No Change ${formatInteger(data.noChangePercent)}%`;
+    
+    createAnimatedNumber(titleElement, prevStats, interpolated, titleFormatter, 600);
+
+    // BASIC DEBUG TEXT - THIS SHOULD ALWAYS SHOW
+    svg.append('text')
+      .attr('x', 10)
+      .attr('y', 50)
+      .style('font-size', '16px')
+      .style('fill', 'red')
+      .style('font-weight', 'bold')
+      .text('DEBUG: APP IS WORKING');
 
     // Add click handler to background to clear selection
     svg.on('click', () => {
@@ -391,8 +557,8 @@ const App = () => {
       }
     });
 
-    // Add tooltip annotation if visible
-    if (scrollState.showTooltip) {
+    // Add tooltip annotation for group view
+    if (scrollState.showGroupView) {
       
       // Use selected point if available, otherwise use default annotated point
       let pointToShow = selectedPoint;
@@ -453,31 +619,53 @@ const App = () => {
             .style('opacity', 0.5);
         }
 
-        // Tooltip content
-        const income = d3.format('$,.0f')(pointToShow['Gross Income']);
-        const changeValue = pointToShow['Percentage Change in Net Income'];
-        const change = (changeValue >= 0 ? '+' : '') + d3.format('.1%')(changeValue / 100);
-        const dollarValue = pointToShow['Total Change in Net Income'];
-        const dollarChange = (dollarValue >= 0 ? '+' : '') + d3.format('$,.0f')(Math.abs(dollarValue));
-        
-        tooltipG.append('text')
+        // Tooltip content with animated numbers
+        const incomeElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 20)
           .style('font-size', '14px')
           .style('font-weight', 'bold')
-          .text(`Household Income: ${income}`);
+          .attr('id', 'tooltip-income');
         
-        tooltipG.append('text')
+        const changeElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 40)
           .style('font-size', '13px')
-          .text(`Net Income Change: ${change}`);
+          .attr('id', 'tooltip-change');
         
-        tooltipG.append('text')
+        const dollarElement = tooltipG.append('text')
           .attr('x', 10)
           .attr('y', 60)
           .style('font-size', '13px')
-          .text(`Dollar Impact: ${dollarChange}`);
+          .attr('id', 'tooltip-dollar');
+
+        // Get previous values for animation (from the element's data)
+        const prevTooltipData = incomeElement.datum() || { 
+          income: 0, 
+          changeValue: 0, 
+          dollarValue: 0 
+        };
+        
+        const currentTooltipData = {
+          income: pointToShow['Gross Income'],
+          changeValue: pointToShow['Percentage Change in Net Income'],
+          dollarValue: pointToShow['Total Change in Net Income']
+        };
+
+        // Store current values for next animation
+        incomeElement.datum(currentTooltipData);
+        changeElement.datum(currentTooltipData);
+        dollarElement.datum(currentTooltipData);
+        
+        // Animate tooltip numbers
+        createAnimatedNumber(incomeElement, prevTooltipData.income, currentTooltipData.income, 
+          (val) => `Household Income: ${formatCurrency(val)}`, 500);
+        
+        createAnimatedNumber(changeElement, prevTooltipData.changeValue, currentTooltipData.changeValue, 
+          (val) => `Net Income Change: ${formatPercentage(val)}`, 500);
+        
+        createAnimatedNumber(dollarElement, prevTooltipData.dollarValue, currentTooltipData.dollarValue, 
+          (val) => `Dollar Impact: ${formatDollarChange(val)}`, 500);
         
         tooltipG.append('text')
           .attr('x', 10)
@@ -488,19 +676,188 @@ const App = () => {
       }
     }
 
+    // Add individual household prose summary
+    if (scrollState.showIndividualView) {
+      console.log('INDIVIDUAL VIEW TRIGGERED!');
+      console.log('Current section:', scrollState.currentSectionIndex);
+      console.log('Random households:', randomHouseholds);
+      const randomHousehold = randomHouseholds[scrollState.currentSectionIndex];
+      console.log('Selected household:', randomHousehold);
+      if (randomHousehold && 
+          randomHousehold['Percentage Change in Net Income'] >= interpolated.xMin && 
+          randomHousehold['Percentage Change in Net Income'] <= interpolated.xMax &&
+          randomHousehold['Gross Income'] <= interpolated.yMax) {
+        console.log('HOUSEHOLD PANEL SHOULD DISPLAY!');
+        
+        const x = xScale(randomHousehold['Percentage Change in Net Income']);
+        const y = distortY(randomHousehold['Gross Income']);
+        
+        // Add prose summary panel
+        const summaryWidth = 400;
+        const summaryHeight = 200;
+        const summaryX = plotWidth - summaryWidth - 20;
+        const summaryY = 20;
+        
+        const summaryG = g.append('g')
+          .attr('transform', `translate(${summaryX}, ${summaryY})`);
+
+        // Summary background
+        summaryG.append('rect')
+          .attr('width', summaryWidth)
+          .attr('height', summaryHeight)
+          .attr('rx', 10)
+          .style('fill', 'rgba(255, 255, 255, 0.95)')
+          .style('stroke', '#e5e7eb')
+          .style('stroke-width', 2)
+          .style('filter', 'drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15))');
+
+        // Highlight the random household
+        g.append('circle')
+          .attr('cx', x)
+          .attr('cy', y)
+          .attr('r', 10)
+          .style('fill', 'none')
+          .style('stroke', randomHousehold['Percentage Change in Net Income'] > 0 ? '#10b981' : '#ef4444')
+          .style('stroke-width', 3)
+          .style('opacity', 0.8);
+
+        // Add prose summary text with animated numbers
+        const summary = generateHouseholdSummary(randomHousehold);
+        const lineHeight = 16;
+        let currentY = 25;
+        
+        summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '14px')
+          .style('font-weight', 'bold')
+          .style('fill', '#374151')
+          .text('Individual Household Profile');
+        
+        currentY += 25;
+        
+        // Static text part 1
+        const staticText1 = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.staticText);
+        
+        currentY += lineHeight * 3;
+        
+        // Animated income value
+        const incomeElement = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#059669')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-income');
+        
+        const prevIncome = incomeElement.datum() || 0;
+        incomeElement.datum(summary.income);
+        createAnimatedNumber(incomeElement, prevIncome, summary.income, formatCurrency, 600);
+        
+        // Middle text
+        summaryG.append('text')
+          .attr('x', 120)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.midText);
+        
+        // Animated baseline income
+        const baselineElement = summaryG.append('text')
+          .attr('x', 220)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#059669')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-baseline');
+        
+        const prevBaseline = baselineElement.datum() || 0;
+        baselineElement.datum(summary.baselineNetIncome);
+        createAnimatedNumber(baselineElement, prevBaseline, summary.baselineNetIncome, formatCurrency, 600);
+        
+        currentY += lineHeight * 2;
+        
+        // End text part 1
+        summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.endText);
+        
+        currentY += lineHeight;
+        
+        // Animated change amount
+        const changeElement = summaryG.append('text')
+          .attr('x', 15)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', summary.changeInNetIncome > 0 ? '#059669' : '#dc2626')
+          .style('font-weight', 'bold')
+          .attr('id', 'summary-change');
+        
+        const prevChange = changeElement.datum() || 0;
+        changeElement.datum(summary.changeInNetIncome);
+        createAnimatedNumber(changeElement, prevChange, summary.changeInNetIncome, formatCurrency, 600);
+        
+        // Final text
+        summaryG.append('text')
+          .attr('x', 80)
+          .attr('y', currentY)
+          .style('font-size', '12px')
+          .style('fill', '#4b5563')
+          .text(summary.finalText);
+      }
+    }
+
     // Add explanatory text at bottom
-    if (scrollState.showTooltip) {
+    if (scrollState.showGroupView || scrollState.showIndividualView) {
       const currentSection = sections[scrollState.currentSectionIndex];
+      const viewType = scrollState.showGroupView ? 'Group Overview' : 'Individual Household';
       svg.append('text')
         .attr('x', width / 2)
         .attr('y', height - 10)
         .attr('text-anchor', 'middle')
         .style('font-size', '14px')
         .style('fill', '#4b5563')
-        .text(currentSection.title);
+        .text(`${currentSection.title} - ${viewType} (Progress: ${scrollState.sectionProgress.toFixed(2)})`);
     }
 
-  }, [data, scrollProgress, selectedPoint]);
+    // Add debug indicator for individual view
+    if (scrollState.showIndividualView) {
+      svg.append('rect')
+        .attr('x', 10)
+        .attr('y', 10)
+        .attr('width', 200)
+        .attr('height', 30)
+        .style('fill', 'red')
+        .style('opacity', 0.7);
+      
+      svg.append('text')
+        .attr('x', 15)
+        .attr('y', 30)
+        .style('font-size', '14px')
+        .style('fill', 'white')
+        .style('font-weight', 'bold')
+        .text('INDIVIDUAL VIEW ACTIVE');
+    }
+
+    // Always show debug info
+    svg.append('text')
+      .attr('x', 10)
+      .attr('y', height - 50)
+      .style('font-size', '12px')
+      .style('fill', 'black')
+      .text(`Progress: ${scrollProgress.toFixed(3)} | Section: ${scrollState.currentSectionIndex} | Individual: ${scrollState.showIndividualView}`);
+      
+    console.log('RENDER UPDATE:', scrollProgress, scrollState.showIndividualView);
+
+  }, [data, scrollProgress, selectedPoint, randomHouseholds]);
 
   return (
     <div className="w-full h-screen bg-gray-50 relative">
@@ -534,7 +891,7 @@ const App = () => {
         className="w-full h-full overflow-y-scroll"
       >
         {/* Scroll content - creates the scrollable height */}
-        <div style={{ height: `${sections.length * 150}vh` }} className="relative">
+        <div style={{ height: `${sections.length * 200}vh` }} className="relative">
           {/* Fixed visualization container */}
           <div className="sticky top-0 w-full h-screen flex items-center justify-center">
             <svg
