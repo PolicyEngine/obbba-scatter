@@ -15,6 +15,8 @@
   let renderedPoints = []; // Store positions for hit detection
   let randomHouseholds = {}; // Store random household for each group
   let animatedNumbers = new Map(); // Store animated number references
+  let animatedHouseholds = new Map(); // Store animated household emphasis
+  let emphasisAnimationId = null; // Track current emphasis animation
 
   const baseViews = [
     {
@@ -188,6 +190,52 @@
     
     const animationId = requestAnimationFrame(animate);
     animatedNumbers.set(elementId, animationId);
+  }
+
+  // Animate household emphasis (simple grow and fade back)
+  function animateHouseholdEmphasis(householdId, duration = 600) {
+    // Cancel existing animation if any
+    if (emphasisAnimationId) {
+      cancelAnimationFrame(emphasisAnimationId);
+    }
+    
+    const startTime = performance.now();
+    
+    function animate(currentTime) {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Simple ease-out: grow to max, then shrink back
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const emphasisScale = 1 + (Math.sin(eased * Math.PI) * 0.8); // Grows then shrinks
+      const emphasisOpacity = 1;
+      
+      // Store the animation state
+      animatedHouseholds.set(householdId, {
+        scale: emphasisScale,
+        opacity: emphasisOpacity,
+        isAnimating: progress < 1
+      });
+      
+      // Trigger re-render
+      if (!isTransitioning) {
+        renderVisualization();
+      }
+      
+      if (progress < 1) {
+        emphasisAnimationId = requestAnimationFrame(animate);
+      } else {
+        // Animation complete, remove from animated households
+        animatedHouseholds.delete(householdId);
+        emphasisAnimationId = null;
+        // Final render without animation
+        if (!isTransitioning) {
+          renderVisualization();
+        }
+      }
+    }
+    
+    emphasisAnimationId = requestAnimationFrame(animate);
   }
 
   // Formatting functions
@@ -553,6 +601,13 @@
       let radius = isHighlighted ? (isIndividualHighlighted ? 6 : 4) : 2;
       let baseOpacity = isHighlighted ? 1 : 0.7;
       
+      // Apply animation effects if this household is being animated
+      const animationState = animatedHouseholds.get(d.id);
+      if (animationState && animationState.isAnimating) {
+        radius = radius * animationState.scale;
+        baseOpacity = Math.min(baseOpacity * animationState.opacity, 1);
+      }
+      
       // Fade other points during individual view
       if (currentState?.viewType === 'individual' && !isIndividualHighlighted) {
         baseOpacity *= 0.2; // Make non-selected households very faint
@@ -878,6 +933,9 @@
     }
     
     if (closestPoint) {
+      // Animate the clicked household
+      animateHouseholdEmphasis(closestPoint.data.id);
+      
       // If we're in an individual household view, update that section's household
       const currentState = scrollStates[currentStateIndex];
       if (currentState?.viewType === 'individual') {
@@ -888,11 +946,6 @@
           // Trigger reactivity
           randomHouseholds = { ...randomHouseholds };
         }
-      }
-      
-      // Trigger re-render to show selection
-      if (!isTransitioning) {
-        renderVisualization();
       }
     }
   }
@@ -936,14 +989,12 @@
         const filteredData = data.filter(baseView.view.filter);
         const newHousehold = getRandomWeightedHousehold(filteredData);
         if (newHousehold) {
+          // Animate the new random household
+          animateHouseholdEmphasis(newHousehold.id);
+          
           randomHouseholds[baseView.id] = newHousehold;
           // Trigger reactivity
           randomHouseholds = { ...randomHouseholds };
-          
-          // Trigger re-render to show the new household highlighting
-          if (!isTransitioning) {
-            renderVisualization();
-          }
         }
       }
     }
