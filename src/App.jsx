@@ -11,6 +11,14 @@ const App = () => {
   const svgRef = useRef(null);
   const scrollContainerRef = useRef(null);
 
+  // BASIC DEBUG
+  console.log('APP COMPONENT RENDERING');
+  
+  useEffect(() => {
+    console.log('APP MOUNTED');
+    alert('App is loading - if you see this, React is working');
+  }, []);
+
   // Define the sections with their income thresholds and messages
   const thresholds = [70000, 120000, 240000, 350000, 500000, 1000000, 2000000, 3000000, 5000000, 7000000];
   const sections = thresholds.map((threshold, i) => ({
@@ -133,6 +141,7 @@ const App = () => {
       const maxScroll = scrollHeight - clientHeight;
       const progress = Math.min(scrollTop / maxScroll, 1);
       
+      console.log('SCROLL EVENT:', scrollTop, maxScroll, progress);
       setScrollProgress(progress);
     };
 
@@ -166,7 +175,7 @@ const App = () => {
       currentDataSection = currentSectionIndex + axisAnimationProgress;
     }
     
-    return {
+    const result = {
       currentSectionIndex,
       showGroupView,
       showIndividualView,
@@ -176,6 +185,12 @@ const App = () => {
       individualTransitionProgress,
       groupFadeOpacity
     };
+    
+    // Debug output
+    console.log('Section progress:', sectionProgress.toFixed(3), 'Show individual:', showIndividualView);
+    console.log('Progress:', progress, 'Current section:', currentSectionIndex);
+    
+    return result;
   };
 
   // Fixed X-axis domains for first three sections, shrinking to [-20,20] thereafter
@@ -250,6 +265,9 @@ const App = () => {
 
     // Clear previous content
     svg.selectAll('*').remove();
+    
+    // BASIC DEBUG - THIS SHOULD ALWAYS SHOW
+    console.log('VISUALIZATION RENDER CALLED!');
 
     // Get current scroll state
     const scrollState = getScrollState(scrollProgress);
@@ -457,6 +475,15 @@ const App = () => {
       .style('font-weight', 'bold')
       .text(`Gained Money ${interpolated.gainedPercent}%  Lost Money ${interpolated.lostPercent}%  No Change ${interpolated.noChangePercent}%`);
 
+    // BASIC DEBUG TEXT - THIS SHOULD ALWAYS SHOW
+    svg.append('text')
+      .attr('x', 10)
+      .attr('y', 50)
+      .style('font-size', '16px')
+      .style('fill', 'red')
+      .style('font-weight', 'bold')
+      .text('DEBUG: APP IS WORKING');
+
     // Add click handler to background to clear selection
     svg.on('click', () => {
       if (selectedPoint) {
@@ -563,8 +590,17 @@ const App = () => {
 
     // Add individual household prose summary
     if (scrollState.showIndividualView) {
+      console.log('INDIVIDUAL VIEW TRIGGERED!');
+      console.log('Current section:', scrollState.currentSectionIndex);
+      console.log('Random households:', randomHouseholds);
       const randomHousehold = randomHouseholds[scrollState.currentSectionIndex];
-      if (randomHousehold) {
+      console.log('Selected household:', randomHousehold);
+      if (randomHousehold && 
+          randomHousehold['Percentage Change in Net Income'] >= interpolated.xMin && 
+          randomHousehold['Percentage Change in Net Income'] <= interpolated.xMax &&
+          randomHousehold['Gross Income'] <= interpolated.yMax) {
+        console.log('HOUSEHOLD PANEL SHOULD DISPLAY!');
+        
         const x = xScale(randomHousehold['Percentage Change in Net Income']);
         const y = distortY(randomHousehold['Gross Income']);
         
@@ -639,8 +675,37 @@ const App = () => {
         .attr('text-anchor', 'middle')
         .style('font-size', '14px')
         .style('fill', '#4b5563')
-        .text(`${currentSection.title} - ${viewType}`);
+        .text(`${currentSection.title} - ${viewType} (Progress: ${scrollState.sectionProgress.toFixed(2)})`);
     }
+
+    // Add debug indicator for individual view
+    if (scrollState.showIndividualView) {
+      svg.append('rect')
+        .attr('x', 10)
+        .attr('y', 10)
+        .attr('width', 200)
+        .attr('height', 30)
+        .style('fill', 'red')
+        .style('opacity', 0.7);
+      
+      svg.append('text')
+        .attr('x', 15)
+        .attr('y', 30)
+        .style('font-size', '14px')
+        .style('fill', 'white')
+        .style('font-weight', 'bold')
+        .text('INDIVIDUAL VIEW ACTIVE');
+    }
+
+    // Always show debug info
+    svg.append('text')
+      .attr('x', 10)
+      .attr('y', height - 50)
+      .style('font-size', '12px')
+      .style('fill', 'black')
+      .text(`Progress: ${scrollProgress.toFixed(3)} | Section: ${scrollState.currentSectionIndex} | Individual: ${scrollState.showIndividualView}`);
+      
+    console.log('RENDER UPDATE:', scrollProgress, scrollState.showIndividualView);
 
   }, [data, scrollProgress, selectedPoint, randomHouseholds]);
 

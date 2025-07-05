@@ -13,12 +13,13 @@
   let scrollContainer;
   let currentSectionIndex = 0;
   let renderedPoints = []; // Store positions for hit detection
+  let randomHouseholds = {}; // Store random household for each group
 
-  const scrollStates = [
+  const baseViews = [
     {
       id: 'intro',
       title: "How tax changes affect every American household",
-      text: "Each dot represents a household, positioned by their income and how much they gain or lose under the proposed tax changes. Green dots show households that benefit, red shows those that face increases.",
+      groupText: "Each dot represents a household, positioned by their income and how much they gain or lose under the proposed tax changes. Green dots show households that benefit, red shows those that face increases.",
       view: {
         xDomain: [-15, 15],
         yDomain: [0, 350000],
@@ -29,7 +30,7 @@
     {
       id: 'middle-class', 
       title: "Middle-class families see mixed results",
-      text: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
+      groupText: "For families earning between $50,000 and $150,000 — the heart of America's middle class — the picture is complex. While some see modest gains, others face tax increases that could impact their family budgets.",
       view: {
         xDomain: [-10, 20],
         yDomain: [50000, 150000],
@@ -40,7 +41,7 @@
     {
       id: 'upper-middle',
       title: "Upper-middle class faces the biggest swings", 
-      text: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
+      groupText: "Households earning $150,000 to $400,000 experience the most dramatic variation in outcomes. This group includes many professionals, small business owners, and dual-income families in expensive areas.",
       view: {
         xDomain: [-25, 25],
         yDomain: [150000, 400000],
@@ -51,7 +52,7 @@
     {
       id: 'high-earners',
       title: "High earners see significant increases",
-      text: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
+      groupText: "The top 5% of earners — those making $400,000 to $1 million — face substantial tax increases under most scenarios. This group contributes a large share of total tax revenue.",
       view: {
         xDomain: [-40, 40], 
         yDomain: [400000, 1000000],
@@ -62,7 +63,7 @@
     {
       id: 'ultra-wealthy',
       title: "The ultra-wealthy face the largest changes",
-      text: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
+      groupText: "Millionaire households represent less than 1% of Americans but show the most extreme policy effects. Some face tax increases exceeding 50% of their current liability.",
       view: {
         xDomain: [-60, 60],
         yDomain: [1000000, 10000000],
@@ -71,6 +72,28 @@
       }
     }
   ];
+
+  // Create dual scroll states: group view + individual household view for each
+  const scrollStates = [];
+  baseViews.forEach((baseView, index) => {
+    // Group view
+    scrollStates.push({
+      ...baseView,
+      text: baseView.groupText,
+      viewType: 'group'
+    });
+    
+    // Individual household view (only for groups that have households)
+    if (index > 0) { // Skip intro section
+      scrollStates.push({
+        ...baseView,
+        id: baseView.id + '-individual',
+        title: baseView.title + ' — individual profile',
+        text: 'Meet a specific household affected by these changes.',
+        viewType: 'individual'
+      });
+    }
+  });
 
   // Load data
   onMount(async () => {
@@ -90,19 +113,19 @@
         sectionIndex: null
       }));
 
-      // Find representative points for each scroll state
-      scrollStates.forEach((state, index) => {
-        const filteredData = data.filter(state.view.filter);
+      // Find representative points for each scroll state and select random households
+      baseViews.forEach((baseView, baseIndex) => {
+        const filteredData = data.filter(baseView.view.filter);
         if (filteredData.length > 0) {
-          // Find a representative point near the center of the view
-          const centerY = (state.view.yDomain[0] + state.view.yDomain[1]) / 2;
-          const centerX = (state.view.xDomain[0] + state.view.xDomain[1]) / 2;
+          // Find representative point for group view
+          const centerY = (baseView.view.yDomain[0] + baseView.view.yDomain[1]) / 2;
+          const centerX = (baseView.view.xDomain[0] + baseView.view.xDomain[1]) / 2;
           
           let closest = null;
           let minDistance = Infinity;
           filteredData.forEach(d => {
-            const dx = (d['Percentage Change in Net Income'] - centerX) / (state.view.xDomain[1] - state.view.xDomain[0]);
-            const dy = (d['Gross Income'] - centerY) / (state.view.yDomain[1] - state.view.yDomain[0]);
+            const dx = (d['Percentage Change in Net Income'] - centerX) / (baseView.view.xDomain[1] - baseView.view.xDomain[0]);
+            const dy = (d['Gross Income'] - centerY) / (baseView.view.yDomain[1] - baseView.view.yDomain[0]);
             const distance = Math.sqrt(dx * dx + dy * dy);
             if (distance < minDistance) {
               minDistance = distance;
@@ -111,8 +134,14 @@
           });
           if (closest) {
             closest.isHighlighted = true;
-            closest.highlightGroup = state.view.highlightGroup;
-            closest.stateIndex = index;
+            closest.highlightGroup = baseView.view.highlightGroup;
+            closest.stateIndex = baseIndex;
+          }
+
+          // Select random household for individual view (skip intro)
+          if (baseIndex > 0) {
+            const randomIndex = Math.floor(Math.random() * filteredData.length);
+            randomHouseholds[baseView.id] = filteredData[randomIndex];
           }
         }
       });
@@ -124,9 +153,41 @@
     }
   });
 
+  // Generate prose summary for a household
+  function generateHouseholdSummary(household) {
+    if (!household) return '';
+    
+    const income = household['Gross Income'];
+    const baselineNetIncome = household['Baseline Net Income'];
+    const changeInNetIncome = household['Total Change in Net Income'];
+    const percentChange = household['Percentage Change in Net Income'];
+    const householdSize = household['Household Size'];
+    const isMarried = household['Is Married'];
+    const numDependents = household['Number of Dependents'];
+    const age = household['Age of Head'];
+    const state = household['State'];
+    
+    const familyStructure = isMarried ? 
+      (numDependents > 0 ? `married couple with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'married couple') :
+      (numDependents > 0 ? `single parent with ${numDependents} dependent${numDependents > 1 ? 's' : ''}` : 'single person');
+    
+    const incomeDescription = income < 50000 ? 'low-income' :
+                            income < 100000 ? 'middle-income' :
+                            income < 500000 ? 'upper-middle-income' : 'high-income';
+    
+    const changeDescription = Math.abs(changeInNetIncome) < 100 ? 'minimal' :
+                            Math.abs(changeInNetIncome) < 1000 ? 'modest' :
+                            Math.abs(changeInNetIncome) < 5000 ? 'significant' : 'substantial';
+    
+    const gainOrLoss = changeInNetIncome > 0 ? 'gains' : 'loses';
+    
+    return `This ${incomeDescription} household is a ${familyStructure} living in ${state}. The head of household is ${age} years old. Under the baseline tax system, this household has a gross income of $${income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} and a net income of $${baselineNetIncome.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}. After the proposed tax reforms, this household ${gainOrLoss} $${Math.abs(changeInNetIncome).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} annually, representing a ${changeDescription} ${Math.abs(percentChange).toFixed(1)}% ${changeInNetIncome > 0 ? 'increase' : 'decrease'} in their net income.`;
+  }
+
   // Scroll handling with intersection observer pattern
   let textSections = [];
   let currentStateIndex = 0;
+  let previousStateIndex = 0;
   let isTransitioning = false;
   let intersectionObserver;
 
@@ -176,13 +237,14 @@
     if (newIndex === currentStateIndex || isTransitioning) return;
     
     isTransitioning = true;
+    previousStateIndex = currentStateIndex;
     const fromState = scrollStates[currentStateIndex];
     const toState = scrollStates[newIndex];
     
     animateScales({
       from: fromState.view,
       to: toState.view,
-      duration: 800,
+      duration: 1200,
       onComplete: () => {
         currentStateIndex = newIndex;
         isTransitioning = false;
@@ -328,6 +390,9 @@
       // Calculate fade opacity based on filter transitions
       let fadeOpacity = 1;
       
+      // Make sure interpolationT is available in this scope
+      const currentInterpolationT = interpolationT;
+      
       if (isTransitioning && fromView && toView && interpolationT !== undefined) {
         const visibleInFrom = fromView.filter ? fromView.filter(d) : true;
         const visibleInTo = toView.filter ? toView.filter(d) : true;
@@ -363,10 +428,39 @@
         color = '#d75442'; // red for losses
       }
 
-      // Point sizing and final opacity
-      const isHighlighted = d.isHighlighted && d.stateIndex === currentStateIndex;
-      const radius = isHighlighted ? 4 : 2;
-      const baseOpacity = isHighlighted ? 1 : 0.7;
+      // Point sizing and final opacity with smooth transitions
+      const currentState = scrollStates[currentStateIndex];
+      const fromState = isTransitioning ? scrollStates[previousStateIndex] : currentState;
+      const toState = currentState;
+      
+      const isGroupHighlighted = d.isHighlighted && d.stateIndex === Math.floor(currentStateIndex / 2);
+      
+      // Individual household highlighting
+      let isIndividualHighlighted = false;
+      let wasIndividualHighlighted = false;
+      
+      if (currentState?.viewType === 'individual') {
+        const baseViewId = baseViews[Math.floor(currentStateIndex / 2)]?.id;
+        const randomHousehold = randomHouseholds[baseViewId];
+        isIndividualHighlighted = randomHousehold && d.id === randomHousehold.id;
+      }
+      
+      // Check previous state for smooth transitions
+      if (isTransitioning && fromState?.viewType === 'individual') {
+        const baseViewId = baseViews[Math.floor(previousStateIndex / 2)]?.id;
+        const prevRandomHousehold = randomHouseholds[baseViewId];
+        wasIndividualHighlighted = prevRandomHousehold && d.id === prevRandomHousehold.id;
+      }
+      
+      const isHighlighted = isGroupHighlighted || isIndividualHighlighted;
+      let radius = isHighlighted ? (isIndividualHighlighted ? 6 : 4) : 2;
+      let baseOpacity = isHighlighted ? 1 : 0.7;
+      
+      // Fade other points during individual view
+      if (currentState?.viewType === 'individual' && !isIndividualHighlighted) {
+        baseOpacity *= 0.2; // Make non-selected households very faint
+      }
+      
       const finalOpacity = baseOpacity * fadeOpacity;
 
       if (finalOpacity > 0.02) { // Only render if sufficiently visible
@@ -610,6 +704,37 @@
           <div class="section-content">
             <h2>{state.title}</h2>
             <p>{@html state.text}</p>
+            
+            {#if state.viewType === 'individual'}
+              {@const baseViewId = baseViews[Math.floor(i / 2)]?.id}
+              {@const randomHousehold = randomHouseholds[baseViewId]}
+              {#if randomHousehold}
+                <div class="household-profile">
+                  <h3>Individual household profile</h3>
+                  <div class="household-summary">
+                    <p>{generateHouseholdSummary(randomHousehold)}</p>
+                  </div>
+                  <div class="household-details">
+                    <div class="detail-item">
+                      <span class="label">Gross income:</span>
+                      <span class="value">${randomHousehold['Gross Income'].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">Net income change:</span>
+                      <span class="value ${randomHousehold['Total Change in Net Income'] > 0 ? 'positive' : 'negative'}">
+                        {randomHousehold['Total Change in Net Income'] > 0 ? '+' : ''}${randomHousehold['Total Change in Net Income'].toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      </span>
+                    </div>
+                    <div class="detail-item">
+                      <span class="label">Percentage change:</span>
+                      <span class="value ${randomHousehold['Percentage Change in Net Income'] > 0 ? 'positive' : 'negative'}">
+                        {randomHousehold['Percentage Change in Net Income'] > 0 ? '+' : ''}{randomHousehold['Percentage Change in Net Income'].toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            {/if}
           </div>
         </section>
       {/each}
@@ -790,6 +915,74 @@
     line-height: 1.5;
     color: var(--nyt-text-secondary);
     margin: 24px 0 0 0;
+  }
+
+  .household-profile {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--nyt-hover);
+    border-radius: 8px;
+    border: 1px solid var(--nyt-border);
+  }
+
+  .household-profile h3 {
+    font-family: var(--nyt-font-serif);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--nyt-text-primary);
+    margin: 0 0 1rem 0;
+  }
+
+  .household-summary {
+    margin-bottom: 1.5rem;
+  }
+
+  .household-summary p {
+    font-family: var(--nyt-font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--nyt-text-secondary);
+    margin: 0;
+  }
+
+  .household-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--nyt-border);
+  }
+
+  .detail-item:last-child {
+    border-bottom: none;
+  }
+
+  .detail-item .label {
+    font-family: var(--nyt-font-mono);
+    font-size: 12px;
+    color: var(--nyt-text-secondary);
+    font-weight: 500;
+  }
+
+  .detail-item .value {
+    font-family: var(--nyt-font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--nyt-text-primary);
+  }
+
+  .detail-item .value.positive {
+    color: var(--nyt-scatter-positive);
+  }
+
+  .detail-item .value.negative {
+    color: var(--nyt-scatter-negative);
   }
 
   /* Mobile responsive */
