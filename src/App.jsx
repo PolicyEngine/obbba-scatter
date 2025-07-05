@@ -74,15 +74,26 @@ const App = () => {
 
   // Handle scroll events
   useEffect(() => {
-    const handleScroll = () => {
+    const throttle = (fn, wait) => {
+      let last = 0;
+      return (...args) => {
+        const now = Date.now();
+        if (now - last >= wait) {
+          last = now;
+          fn(...args);
+        }
+      };
+    };
+
+    const handleScroll = throttle(() => {
       if (!scrollContainerRef.current) return;
-      
+
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
       const maxScroll = scrollHeight - clientHeight;
       const progress = Math.min(scrollTop / maxScroll, 1);
-      
+
       setScrollProgress(progress);
-    };
+    }, 50);
 
     const container = scrollContainerRef.current;
     if (container) {
@@ -260,7 +271,7 @@ const App = () => {
       .style('stroke-dasharray', '4,4')
       .style('opacity', 0.7)
       .transition()
-      .duration(100)
+      .duration(500)
       .ease(d3.easeQuadOut)
       .attr('x1', d => xScale(d))
       .attr('x2', d => xScale(d));
@@ -274,7 +285,7 @@ const App = () => {
 
     // X-axis shrinks fluidly via scroll-driven transition
     xAxisG.transition()
-      .duration(100)
+      .duration(500)
       .ease(d3.easeQuadOut)
       .call(d3.axisBottom(xScale).tickFormat(d => `${d}%`));
 
@@ -357,13 +368,13 @@ const App = () => {
       .on('mouseover', function(event, d) {
         d3.select(this)
           .transition()
-          .duration(100)
+          .duration(500)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 6 : 4);
       })
       .on('mouseout', function(event, d) {
         d3.select(this)
           .transition()
-          .duration(100)
+          .duration(500)
           .attr('r', d.isAnnotated && d.sectionIndex === scrollState.currentSectionIndex ? 5 : 2);
       });
 
