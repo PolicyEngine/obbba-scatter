@@ -5,7 +5,7 @@ import random
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 INPUT_CSV = os.path.join(BASE_DIR, '..', 'public', 'household_tax_income_changes_senate_current_law_baseline.csv')
-OUTPUT_JSON = os.path.join(BASE_DIR, '..', 'public', 'household_tax_income_changes_sample.json')
+OUTPUT_JSON = os.path.join(BASE_DIR, '..', 'src', 'data', 'household_tax_income_changes_sample.json')
 SAMPLE_FRACTION = 0.05
 
 # Columns to keep
