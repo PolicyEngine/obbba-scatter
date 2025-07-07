@@ -1,7 +1,7 @@
 <script>
 import { onMount } from 'svelte';
 import * as d3 from 'd3';
-import rawData from '../public/household_tax_income_changes_sample.json';
+import rawData from './data/household_tax_income_changes_sample.json';
 
   let data = [];
   let loading = true;
