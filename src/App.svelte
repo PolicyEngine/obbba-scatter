@@ -1,7 +1,6 @@
 <script>
 import { onMount } from 'svelte';
 import * as d3 from 'd3';
-import rawData from './data/household_tax_income_changes_sample.json';
 
   let data = [];
   let loading = true;
@@ -22,9 +21,11 @@ import rawData from './data/household_tax_income_changes_sample.json';
     annotationTarget:{ income: threshold*0.5, percentChange:0 }
   }));
 
-  function loadData(){
+  async function loadData(){
     try {
-      const parsed = rawData.map((d,i)=>({
+      const response = await fetch(new URL('./data/household_tax_income_changes_sample.json', import.meta.url));
+      const json = await response.json();
+      const parsed = json.map((d,i)=>({
         ...d,
         id:i,
         isAnnotated:false,
