@@ -731,10 +731,10 @@
   .value.pos { color: var(--scatter-positive); }
   .value.neg { color: var(--scatter-negative); }
 
-  /* Use Roboto Mono for all text in the household box */
+  /* Use JetBrains Mono for all text in the household box (PolicyEngine design system) */
   .household-profile,
   .household-profile * {
-    font-family: 'Roboto Mono', monospace !important;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
   }
   
   /* New section styles */
@@ -758,7 +758,7 @@
   .expand-button {
     background: none;
     border: none;
-    color: var(--primary-blue);
+    color: var(--primary-500);
     cursor: pointer;
     font-size: 0.85rem;
     padding: 0.5rem 0;
@@ -769,9 +769,9 @@
     align-items: center;
     gap: 0.5rem;
   }
-  
+
   .expand-button:hover {
-    color: var(--darkest-blue);
+    color: var(--primary-700);
   }
   
   .expand-icon {

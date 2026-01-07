@@ -958,6 +958,10 @@
 <svelte:head>
   <title>OBBBA Household Explorer</title>
   <meta name="description" content="Interactive visualization showing how different American households are affected by tax policy changes">
+  <!-- PolicyEngine Design System Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&family=Roboto+Serif:wght@400;500;700&display=swap" rel="stylesheet">
 </svelte:head>
 
 <div class="app-container">
@@ -1151,29 +1155,62 @@
 
 <style>
   :global(:root) {
-    /* Colors */
+    /* PolicyEngine Design System - Colors */
     --app-background: #FFFFFF;
-    --text-primary: #2C3E50;
-    --text-secondary: #606F7B;
+    --text-primary: #000000;
+    --text-secondary: #5A5A5A;
+    --text-tertiary: #9CA3AF;
     --border: #E2E8F0;
-    --hover: #F7FAFC;
-    --scatter-positive: #2D9E99; /* Teal */
-    --scatter-negative: #616161; /* Dark Gray */
-    --button-bg: #3B82F6;
-    --button-hover: #2563EB;
-    
-    /* PolicyEngine Colors */
-    --darkest-blue: #182333;
-    --primary-blue: #5B9BD5;
-    --lightest-blue: #ECF5FC;
-    --dark-gray: #6B7280;
+    --border-medium: #CBD5E1;
+    --border-dark: #94A3B8;
+    --hover: #F9FAFB;
+
+    /* Primary (Teal) */
+    --primary-50: #E6FFFA;
+    --primary-100: #B2F5EA;
+    --primary-200: #81E6D9;
+    --primary-300: #4FD1C5;
+    --primary-400: #38B2AC;
+    --primary-500: #319795;
+    --primary-600: #2C7A7B;
+    --primary-700: #285E61;
+
+    /* Scatter plot colors */
+    --scatter-positive: #319795; /* Teal for gains */
+    --scatter-negative: #6B7280; /* Gray for losses */
+
+    /* Semantic colors */
+    --success: #22C55E;
+    --warning: #FEC601;
+    --error: #EF4444;
+    --info: #1890FF;
+
+    /* Gray scale */
+    --gray-50: #F9FAFB;
+    --gray-100: #F2F4F7;
+    --gray-200: #E2E8F0;
+    --gray-300: #D1D5DB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-600: #4B5563;
+    --gray-700: #344054;
+
+    /* Button colors */
+    --button-bg: #319795;
+    --button-hover: #2C7A7B;
+
+    /* Legacy aliases */
+    --darkest-blue: #000000;
+    --primary-blue: #319795;
+    --dark-gray: #5A5A5A;
     --medium-dark-gray: #D1D5DB;
-    --policyengine-blue: #5B9BD5;
-    --grid-lines: #D1D5DB;
-    
-    /* Fonts */
-    --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'Roboto Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    --grid-lines: #E2E8F0;
+
+    /* PolicyEngine Typography */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    --font-body: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-chart: 'Roboto Serif', Georgia, 'Times New Roman', serif;
   }
   
   :global(body) {
@@ -1337,7 +1374,7 @@
   }
 
   .tab-button:hover:not(:disabled):not(.active) {
-    background: rgba(44, 100, 150, 0.08);
+    background: rgba(49, 151, 149, 0.08); /* primary-500 with transparency */
     color: var(--text-primary);
   }
 

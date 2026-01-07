@@ -95,8 +95,12 @@ describe('formatting utilities', () => {
 
   describe('getFontFamily', () => {
     it('returns correct font families', () => {
-      expect(getFontFamily('sans')).toContain('system-ui');
-      expect(getFontFamily('mono')).toContain('Menlo');
+      // PolicyEngine Design System fonts
+      expect(getFontFamily('sans')).toContain('Inter');
+      expect(getFontFamily('mono')).toContain('JetBrains Mono');
+      expect(getFontFamily('serif')).toContain('Roboto Serif');
+      expect(getFontFamily('chart')).toContain('Roboto Serif');
+      expect(getFontFamily('body')).toContain('Roboto');
     });
 
     it('defaults to sans font', () => {

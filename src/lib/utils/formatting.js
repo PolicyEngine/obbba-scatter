@@ -33,12 +33,14 @@ export function formatDollarChange(value) {
   return value > 0 ? '+' + formatted : '-' + formatted;
 }
 
-// Get font family from type
+// Get font family from type (PolicyEngine Design System)
 export function getFontFamily(type = 'sans') {
   const fontMap = {
-    'serif': "'Roboto Serif', serif",
-    'sans': "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    'mono': "'Menlo', 'Monaco', 'Courier New', monospace"
+    'sans': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    'body': "'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    'serif': "'Roboto Serif', Georgia, 'Times New Roman', serif",
+    'chart': "'Roboto Serif', Georgia, 'Times New Roman', serif",
+    'mono': "'JetBrains Mono', 'Fira Code', Consolas, monospace"
   };
   return fontMap[type] || fontMap['sans'];
 }
