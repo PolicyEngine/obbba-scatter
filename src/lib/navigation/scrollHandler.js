@@ -15,9 +15,11 @@ let transitionDuration = 1200; // ms - longer for smoother zoom effect
 let animationFrameId = null;
 
 // Create intersection observer for scroll sections
-export function createIntersectionObserver(textSections, onSectionChange) {
+export function createIntersectionObserver(textSections, onSectionChange, scrollContainer = null) {
+  // Use the scroll container as root if provided, otherwise use viewport
+  // This is critical when sections are inside a scrollable container (not window scroll)
   const observerOptions = {
-    root: null,
+    root: scrollContainer,
     rootMargin: '-45% 0px -45% 0px',
     threshold: 0
   };
@@ -153,4 +155,14 @@ export function cleanupScrollObserver(observer) {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
   }
+}
+
+// Navigate to a section by its ID
+export function navigateToSection(sectionId, scrollStates) {
+  const targetIndex = scrollStates.findIndex(s => s.id === sectionId);
+  if (targetIndex >= 0 && targetIndex !== get(currentStateIndex)) {
+    startTransition(targetIndex, null);
+    return true;
+  }
+  return false;
 }

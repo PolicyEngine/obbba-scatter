@@ -1,7 +1,7 @@
 /**
  * Creates a render queue that ensures renders are not lost during rapid updates.
  * This prevents the issue where scrolling too fast can cause dots not to render.
- * 
+ *
  * @param {Function} renderFn - The render function to call
  * @param {Object} options - Configuration options
  * @param {number} options.debounceMs - Milliseconds to debounce (default: 16 for ~60fps)
@@ -9,75 +9,74 @@
  */
 export function createRenderQueue(renderFn, options = {}) {
   const { debounceMs = 16 } = options;
-  
-  let pendingRender = null;
+
+  let pendingTimeoutId = null;  // Timeout ID for clearing
+  let needsRenderAfterCurrent = false;  // Flag for pending render
   let isRendering = false;
   let lastState = null;
-  let renderPromise = null;
-  
-  const performRender = async () => {
+
+  const performRender = () => {
     if (isRendering) {
-      // If already rendering, wait for it to complete then render again
-      if (renderPromise) {
-        await renderPromise;
-      }
+      // If already rendering, mark that we need another render after
+      needsRenderAfterCurrent = true;
+      return;
     }
-    
+
     isRendering = true;
-    
+
     try {
-      // Call render with the latest state if provided
-      renderPromise = Promise.resolve(renderFn(lastState));
-      await renderPromise;
+      // Call render function synchronously (canvas rendering is sync)
+      renderFn(lastState);
     } finally {
       isRendering = false;
-      renderPromise = null;
-      
-      // If there's a pending render, execute it
-      if (pendingRender !== null) {
-        const pending = pendingRender;
-        pendingRender = null;
-        pending();
+
+      // If there was a request while we were rendering, do another render
+      if (needsRenderAfterCurrent) {
+        needsRenderAfterCurrent = false;
+        // Use requestAnimationFrame for smooth animation
+        requestAnimationFrame(performRender);
       }
     }
   };
-  
+
   const enqueue = (state) => {
     // Update the state to render
     if (state !== undefined) {
       lastState = state;
     }
-    
+
     // Clear any existing timeout
-    if (pendingRender) {
-      clearTimeout(pendingRender);
+    if (pendingTimeoutId !== null) {
+      clearTimeout(pendingTimeoutId);
+      pendingTimeoutId = null;
     }
-    
+
     // Schedule render with debouncing
-    pendingRender = setTimeout(() => {
-      pendingRender = null;
+    pendingTimeoutId = setTimeout(() => {
+      pendingTimeoutId = null;
       performRender();
     }, debounceMs);
   };
-  
+
   const forceRender = () => {
     // Cancel pending render
-    if (pendingRender) {
-      clearTimeout(pendingRender);
-      pendingRender = null;
+    if (pendingTimeoutId !== null) {
+      clearTimeout(pendingTimeoutId);
+      pendingTimeoutId = null;
     }
-    
+
     // Render immediately
-    return performRender();
+    performRender();
   };
-  
+
   const cancel = () => {
-    if (pendingRender) {
-      clearTimeout(pendingRender);
-      pendingRender = null;
+    if (pendingTimeoutId !== null) {
+      clearTimeout(pendingTimeoutId);
+      pendingTimeoutId = null;
     }
+    needsRenderAfterCurrent = false;
   };
-  
+
   return {
     enqueue,
     forceRender,
@@ -86,7 +85,7 @@ export function createRenderQueue(renderFn, options = {}) {
       return isRendering;
     },
     get hasPending() {
-      return pendingRender !== null;
+      return pendingTimeoutId !== null || needsRenderAfterCurrent;
     }
   };
 }

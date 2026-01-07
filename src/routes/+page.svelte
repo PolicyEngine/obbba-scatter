@@ -18,6 +18,7 @@
     createIntersectionObserver,
     getRandomWeightedHousehold,
     cleanupScrollObserver,
+    navigateToSection,
     currentStateIndex,
     previousStateIndex,
     isTransitioning,
@@ -148,12 +149,24 @@
   
   // Get current state
   $: currentState = scrollStates[$currentStateIndex] || scrollStates[0];
-  
+
   // Re-render chart whenever transition values change
   $: if (chartComponent && ($isTransitioning || $currentInterpolationT)) {
     chartComponent.renderVisualization();
   }
-  
+
+  // Force re-render when state changes
+  $: if (chartComponent && $currentStateIndex >= 0) {
+    chartComponent.renderVisualization();
+  }
+
+  // Set up scroll observer when sections are populated
+  // This must be reactive because textSections is populated via bind:this after initial render
+  // Pass scrollContainer as root since sections scroll inside .content-overlay, not the viewport
+  $: if (textSections.length > 0 && textSections[0] && scrollContainer && !scrollObserver) {
+    scrollObserver = createIntersectionObserver(textSections, handleSectionChange, scrollContainer);
+  }
+
   // Handle pending scroll to household when sections are ready
   $: if (pendingScrollToHousehold && textSections.length > 0 && textSections[pendingScrollToHousehold.targetIndex]) {
     const { household, targetIndex } = pendingScrollToHousehold;
@@ -437,12 +450,17 @@
     }
     
     try {
-      const { householdId, baseline } = parseUrlParams();
-      console.log('handleUrlParams called with:', { householdId, baseline });
-      
+      const { householdId, baseline, section } = parseUrlParams();
+      console.log('handleUrlParams called with:', { householdId, baseline, section });
+
       // Update baseline if provided
       if (baseline && baseline !== selectedDataset) {
         selectedDataset = baseline;
+      }
+
+      // Navigate to section if provided (and data is ready)
+      if (section && scrollStates.length > 0) {
+        navigateToSection(section, scrollStates);
       }
       
       // Load all datasets if needed
@@ -802,12 +820,10 @@
     
     // Handle initial URL parameters
     await handleUrlParams();
-    
-    // Set up scroll observer
-    if (textSections.length > 0) {
-      scrollObserver = createIntersectionObserver(textSections, handleSectionChange);
-    }
-    
+
+    // Note: Scroll observer is set up via reactive statement below
+    // because textSections may not be populated yet when onMount runs
+
     // Listen for URL changes
     const unsubscribe = page.subscribe(() => {
       // Skip if this is an internal update
