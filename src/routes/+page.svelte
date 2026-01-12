@@ -990,16 +990,24 @@
     </h1>
   </div>
   
-  <!-- GitHub link in upper right -->
-  <a href="https://github.com/PolicyEngine/obbba-household-by-household" 
-     target="_blank" 
-     rel="noopener noreferrer"
-     class="github-link"
-     title="View source on GitHub">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.43 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.08 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 013.01-.4c1.02.01 2.05.14 3.01.4 2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.42.36.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.21.7.82.58C20.57 21.8 24 17.31 24 12c0-6.63-5.37-12-12-12z"/>
-    </svg>
-  </a>
+  <!-- Top right links -->
+  <div class="top-right-links">
+    <a href="explore" class="explore-link" title="Explore by Congressional District">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+      </svg>
+      <span class="link-text">Explore by District</span>
+    </a>
+    <a href="https://github.com/PolicyEngine/obbba-household-by-household"
+       target="_blank"
+       rel="noopener noreferrer"
+       class="github-link"
+       title="View source on GitHub">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.43 9.8 8.21 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.08 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 013.01-.4c1.02.01 2.05.14 3.01.4 2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.48 5.92.42.36.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.21.7.82.58C20.57 21.8 24 17.31 24 12c0-6.63-5.37-12-12-12z"/>
+      </svg>
+    </a>
+  </div>
   
   <!-- Baseline selector overlay (always visible on right) -->
   <div class="baseline-selector-overlay" class:dropdown-open={baselineDropdownOpen}>
@@ -1305,12 +1313,45 @@
     animation: arrow-bounce 2s infinite;
   }
   
-  /* GitHub link in upper right */
-  .github-link {
+  /* Top right links */
+  .top-right-links {
     position: fixed;
     top: 2rem;
     right: 2rem;
     z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .explore-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    background: rgba(255, 255, 255, 0.95);
+    color: #319795;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .explore-link:hover {
+    background: #319795;
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(49, 151, 149, 0.3);
+  }
+
+  .explore-link svg {
+    flex-shrink: 0;
+  }
+
+  .github-link {
     color: var(--text-secondary);
     opacity: 0.7;
     transition: opacity 0.2s ease, transform 0.2s ease;
@@ -1665,12 +1706,24 @@
   
   /* Responsive design */
   @media (max-width: 768px) {
-    .github-link {
+    .top-right-links {
       top: 1rem;
       right: 1rem;
+      gap: 0.5rem;
+    }
+
+    .explore-link {
       padding: 0.5rem;
     }
-    
+
+    .explore-link .link-text {
+      display: none;
+    }
+
+    .github-link {
+      padding: 0.5rem;
+    }
+
     .github-link svg {
       width: 20px;
       height: 20px;
