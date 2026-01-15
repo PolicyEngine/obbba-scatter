@@ -320,13 +320,21 @@ def obbba_auto_loan_reform():
 def obbba_misc_reform():
     """
     OBBBA miscellaneous itemized deductions.
-    Disables misc itemized deductions and casualty deductions (TCJA/OBBBA provision).
+    Disables misc itemized deductions (TCJA/OBBBA provision).
     """
     return Reform.from_dict({
         "gov.irs.deductions.itemized.misc.applies": {
             "2026-01-01.2100-12-31": False
         },
-        # Casualty deduction disabled under TCJA/OBBBA
+    }, country_id="us")
+
+
+def obbba_casualty_reform():
+    """
+    OBBBA casualty loss deduction repeal.
+    Disables casualty deductions (TCJA/OBBBA provision).
+    """
+    return Reform.from_dict({
         "gov.irs.deductions.itemized.casualty.active": {
             "2026-01-01.2100-12-31": False
         },
@@ -427,6 +435,36 @@ def medicaid_takeup_reform():
     }, country_id="us")
 
 
+def aca_enhanced_subsidies_reform():
+    """
+    ACA enhanced subsidies removal (OBBBA does NOT extend enhanced subsidies).
+
+    The American Rescue Plan Act (2021) and Inflation Reduction Act (2022) enhanced
+    ACA subsidies by:
+    1. Removing the 400% FPL income cap (anyone can get subsidies)
+    2. Lowering required contribution percentages
+
+    These enhancements expire after 2025. OBBBA does NOT extend them, so this reform
+    reverts to post-ARPA values (higher contribution rates, 400% FPL cap restored).
+
+    This causes losses for households receiving ACA subsidies, especially those
+    above 400% FPL who lose eligibility entirely.
+    """
+    return Reform.from_dict({
+        # Revert to post-ARPA contribution rates (higher = people pay more)
+        "gov.aca.ptc_phase_out_rate[0].amount": {"2026-01-01.2100-12-31": 0.02},
+        "gov.aca.ptc_phase_out_rate[1].threshold": {"2026-01-01.2100-12-31": 1.33},
+        "gov.aca.ptc_phase_out_rate[1].amount": {"2025-01-01.2100-12-31": 0.03},
+        "gov.aca.ptc_phase_out_rate[2].amount": {"2026-01-01.2100-12-31": 0.04},
+        "gov.aca.ptc_phase_out_rate[3].amount": {"2026-01-01.2100-12-31": 0.063},
+        "gov.aca.ptc_phase_out_rate[4].amount": {"2026-01-01.2100-12-31": 0.0805},
+        "gov.aca.ptc_phase_out_rate[5].amount": {"2026-01-01.2100-12-31": 0.095},
+        "gov.aca.ptc_phase_out_rate[6].amount": {"2026-01-01.2100-12-31": 0.095},
+        # Restore 400% FPL cap (above 400% = NOT eligible)
+        "gov.aca.ptc_income_eligibility[2].amount": {"2026-01-01.2100-12-31": False},
+    }, country_id="us")
+
+
 def get_obbba_provisions():
     """
     Get dictionary of all OBBBA provision reforms.
@@ -445,6 +483,7 @@ def get_obbba_provisions():
         "QBI Deduction Reform": obbba_qbi_reform(),
         "AMT Reform": obbba_amt_reform(),
         "Miscellaneous Reform": obbba_misc_reform(),
+        "Casualty Loss Repeal": obbba_casualty_reform(),
         "Other Itemized Deductions Reform": obbba_other_item_reform(),
         "Limitation on Itemized Deductions Reform": obbba_limitation_on_itemized_reform(),
         "Estate Tax Reform": obbba_estate_tax_reform(),

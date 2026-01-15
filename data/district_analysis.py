@@ -367,3 +367,74 @@ def calculate_district_obbba_impacts(reforms, baseline_reform, year, states=None
         return combined_df
     else:
         raise ValueError("No states were successfully processed")
+
+
+if __name__ == "__main__":
+    import argparse
+    from reforms import obbba_reversal_reform, tcja_reform
+    from obbba_reforms import get_obbba_provisions
+
+    parser = argparse.ArgumentParser(
+        description="Generate district-level OBBBA impact data"
+    )
+    parser.add_argument(
+        "--baseline",
+        choices=["tcja-expiration", "tcja-extension"],
+        default="tcja-expiration",
+        help="Baseline to use (default: tcja-expiration)"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        help="Output filename (default: auto-generated based on baseline)"
+    )
+    parser.add_argument(
+        "--states",
+        type=str,
+        nargs="*",
+        help="Specific states to process (default: all)"
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=2026,
+        help="Tax year to analyze (default: 2026)"
+    )
+
+    args = parser.parse_args()
+
+    # Get OBBBA provisions (same for both baselines)
+    reforms = get_obbba_provisions()
+
+    # Set baseline based on argument
+    if args.baseline == "tcja-expiration":
+        print("Using TCJA Expiration baseline (obbba_reversal only)")
+        baseline_reform = obbba_reversal_reform()
+        default_output = "../static/district_obbba_impacts.csv"
+    else:
+        print("Using TCJA Extension baseline (obbba_reversal + tcja)")
+        baseline_reform = (obbba_reversal_reform(), tcja_reform())
+        default_output = "../static/district_obbba_impacts_current_law.csv"
+
+    output_file = args.output or default_output
+
+    # Process states
+    states = args.states if args.states else None
+
+    print(f"\nGenerating district analysis for {args.baseline}")
+    print(f"Year: {args.year}")
+    print(f"Output: {output_file}")
+    print(f"States: {states or 'ALL'}")
+    print(f"Reforms: {len(reforms)} provisions")
+
+    # Run the analysis
+    df = calculate_district_obbba_impacts(
+        reforms=reforms,
+        baseline_reform=baseline_reform,
+        year=args.year,
+        states=states
+    )
+
+    # Save to CSV
+    df.to_csv(output_file, index=False)
+    print(f"\nSaved to {output_file}")
