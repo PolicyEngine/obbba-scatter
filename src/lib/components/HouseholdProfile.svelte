@@ -954,20 +954,21 @@
     border-left: 4px solid var(--border);
   }
   
-  /* Income sources tooltip - positioned below */
+  /* Income sources tooltip - positioned below, aligned to right edge */
   .income-sources-tooltip {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
     top: 100%;
     bottom: auto;
     transform: none;
     margin-top: 8px;
     margin-right: 0;
   }
-  
+
   /* Income sources tooltip arrow pointing up */
   .income-sources-tooltip::after {
-    left: 20px;
+    right: 20px;
+    left: auto;
     top: -4px;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;

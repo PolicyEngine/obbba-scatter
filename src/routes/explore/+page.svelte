@@ -286,15 +286,31 @@
       </a>
       <h1 class="page-title">Explore by Congressional District</h1>
     </div>
-
-    <div class="header-right">
-      <select class="dataset-select" value={selectedDataset} on:change={handleDatasetChange}>
-        {#each Object.entries(districtDatasets) as [key, config]}
-          <option value={key}>{config.label}</option>
-        {/each}
-      </select>
-    </div>
   </header>
+
+  <!-- Baseline selector overlay (bottom right, matching nationwide style) -->
+  <div class="baseline-selector-overlay">
+    <span class="baseline-label">Baseline:</span>
+    <div class="baseline-selector">
+      {#each Object.entries(districtDatasets) as [key, config]}
+        <button
+          class="tab-button"
+          class:active={selectedDataset === key}
+          on:click={() => {
+            selectedDataset = key;
+            if (allDatasets[key]) {
+              data = allDatasets[key];
+              updateFilteredData();
+            } else {
+              loadData();
+            }
+          }}
+        >
+          {config.label}
+        </button>
+      {/each}
+    </div>
+  </div>
 
   <!-- Main Content -->
   <main class="main-content">
@@ -353,6 +369,10 @@
     padding: 0;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     background: #f8fafc;
+
+    /* Scatter plot colors - match nationwide styling */
+    --scatter-positive: #319795; /* Teal for gains */
+    --scatter-negative: #6B7280; /* Gray for losses */
   }
 
   .explore-page {
@@ -400,30 +420,54 @@
     margin: 0;
   }
 
-  .header-right {
+  /* Baseline selector overlay (bottom right, matching nationwide style) */
+  .baseline-selector-overlay {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 20;
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
-  .dataset-select {
-    padding: 8px 32px 8px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L2 4h8z'/%3E%3C/svg%3E") no-repeat right 10px center;
-    font-family: 'Inter', sans-serif;
+  .baseline-label {
     font-size: 14px;
-    font-weight: 500;
-    color: #334155;
-    cursor: pointer;
-    appearance: none;
-    min-width: 200px;
+    font-weight: 600;
+    color: #1e293b;
+    font-family: 'Inter', sans-serif;
   }
 
-  .dataset-select:focus {
-    outline: none;
+  .baseline-selector {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tab-button {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(226, 232, 240, 0.5);
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .tab-button:hover:not(.active) {
+    background: rgba(255, 255, 255, 1);
+    border-color: #cbd5e1;
+  }
+
+  .tab-button.active {
+    background: #319795;
+    color: white;
     border-color: #319795;
-    box-shadow: 0 0 0 3px rgba(49, 151, 149, 0.1);
+    box-shadow: 0 2px 8px rgba(49, 151, 149, 0.3);
   }
 
   .main-content {
@@ -523,8 +567,6 @@
   /* Responsive */
   @media (max-width: 768px) {
     .header {
-      flex-direction: column;
-      gap: 12px;
       padding: 12px 16px;
     }
 
@@ -537,12 +579,26 @@
       font-size: 16px;
     }
 
-    .header-right {
-      width: 100%;
+    .baseline-selector-overlay {
+      bottom: 1rem;
+      right: 1rem;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
     }
 
-    .dataset-select {
-      width: 100%;
+    .baseline-label {
+      font-size: 12px;
+    }
+
+    .baseline-selector {
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tab-button {
+      font-size: 12px;
+      padding: 6px 12px;
     }
   }
 </style>

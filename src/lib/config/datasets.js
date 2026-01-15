@@ -16,12 +16,12 @@ export const datasets = {
 export const districtDatasets = {
   'obbba-vs-current-policy': {
     filename: 'district_obbba_impacts.csv',
-    label: 'OBBBA vs Current Policy',
+    label: 'TCJA Expiration',
     description: 'OBBBA impact compared to TCJA expiration baseline'
   },
   'obbba-vs-current-law': {
     filename: 'district_obbba_impacts_current_law.csv',
-    label: 'OBBBA vs Current Law',
+    label: 'TCJA Extension',
     description: 'OBBBA impact compared to TCJA extension baseline'
   }
 };

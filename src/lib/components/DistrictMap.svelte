@@ -472,12 +472,16 @@
         {#if agg}
           <div class="district-stats">
             <div class="mini-stat">
-              <span class="mini-value">{formatMetricValue(agg.avgChange, 'avgChange')}</span>
+              <span class="mini-value" class:positive={agg.avgChange > 0} class:negative={agg.avgChange < 0}>{formatMetricValue(agg.avgChange, 'avgChange')}</span>
               <span class="mini-label">avg change</span>
             </div>
             <div class="mini-stat">
-              <span class="mini-value">{agg.pctWinners.toFixed(0)}%</span>
-              <span class="mini-label">winners</span>
+              <span class="mini-value positive">{agg.pctWinners.toFixed(0)}%</span>
+              <span class="mini-label">gain</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-value negative">{agg.pctLosers.toFixed(0)}%</span>
+              <span class="mini-label">lose</span>
             </div>
             <div class="mini-stat">
               <span class="mini-value">{(agg.households / 1000).toFixed(0)}K</span>
@@ -557,6 +561,14 @@
     font-size: 18px;
     font-weight: 600;
     color: #334155;
+  }
+
+  .mini-value.positive {
+    color: #319795;
+  }
+
+  .mini-value.negative {
+    color: #6B7280;
   }
 
   .mini-label {

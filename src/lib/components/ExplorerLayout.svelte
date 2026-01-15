@@ -127,42 +127,6 @@
 
   <!-- Scatter Panel -->
   <div class="scatter-panel">
-    <!-- Scatter Header with controls -->
-    <div class="scatter-header">
-      <div class="selection-info">
-        {#if selectedDistrict}
-          <span class="district-badge">{formatDistrictName(selectedDistrict)}</span>
-          <span class="district-name">{formatDistrictFullName(selectedDistrict)}</span>
-        {:else}
-          <span class="district-badge nationwide">US</span>
-          <span class="district-name">Nationwide</span>
-        {/if}
-      </div>
-
-    </div>
-
-    <!-- Stats Bar -->
-    <div class="stats-bar">
-      <div class="stat">
-        <span class="stat-value">{formatNumber(selectionStats.total)}</span>
-        <span class="stat-label">households</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value" class:positive={selectionStats.avgChange > 0} class:negative={selectionStats.avgChange < 0}>
-          {selectionStats.avgChange > 0 ? '+' : ''}{selectionStats.avgChange.toFixed(1)}%
-        </span>
-        <span class="stat-label">avg change</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value positive">{selectionStats.pctWinners.toFixed(0)}%</span>
-        <span class="stat-label">gain</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value negative">{selectionStats.pctLosers.toFixed(0)}%</span>
-        <span class="stat-label">lose</span>
-      </div>
-    </div>
-
     <!-- Scatter Plot Container (slot for the actual scatter) -->
     <div class="scatter-content">
       <slot name="scatter" {filteredData}></slot>
@@ -193,82 +157,6 @@
     overflow: hidden;
   }
 
-  .scatter-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 20px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    flex-shrink: 0;
-  }
-
-  .selection-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .district-badge {
-    padding: 4px 10px;
-    background: #319795;
-    color: #fff;
-    font-family: 'Inter', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 4px;
-    letter-spacing: 0.5px;
-  }
-
-  .district-badge.nationwide {
-    background: #64748b;
-  }
-
-  .district-name {
-    font-family: 'Inter', sans-serif;
-    font-size: 14px;
-    font-weight: 500;
-    color: #334155;
-  }
-
-
-  .stats-bar {
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    padding: 10px 20px;
-    background: #fff;
-    border-bottom: 1px solid #e2e8f0;
-    flex-shrink: 0;
-  }
-
-  .stat {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-
-  .stat-value {
-    font-family: 'Inter', sans-serif;
-    font-size: 18px;
-    font-weight: 600;
-    color: #1e293b;
-  }
-
-  .stat-value.positive {
-    color: #319795;
-  }
-
-  .stat-value.negative {
-    color: #64748b;
-  }
-
-  .stat-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 12px;
-    color: #94a3b8;
-  }
-
   .scatter-content {
     flex: 1;
     overflow: hidden;
@@ -289,15 +177,6 @@
 
     .map-panel {
       display: none;
-    }
-
-    .stats-bar {
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .stat {
-      flex: 1 1 45%;
     }
   }
 </style>
