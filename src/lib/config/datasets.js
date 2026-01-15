@@ -1,4 +1,4 @@
-// Dataset configuration
+// Dataset configuration for main story view
 export const datasets = {
   'tcja-expiration': {
     filename: 'household_tax_income_changes_senate_current_law_baseline.csv',
@@ -9,6 +9,20 @@ export const datasets = {
     filename: 'household_tax_income_changes_senate_tcja_baseline.csv',
     label: 'TCJA extension',
     description: 'Analysis showing impact if TCJA provisions are extended'
+  }
+};
+
+// Dataset configuration for district explorer (OBBBA comparisons)
+export const districtDatasets = {
+  'obbba-vs-current-policy': {
+    filename: 'district_obbba_impacts.csv',
+    label: 'OBBBA vs Current Policy',
+    description: 'OBBBA impact compared to TCJA expiration baseline'
+  },
+  'obbba-vs-current-law': {
+    filename: 'district_obbba_impacts_current_law.csv',
+    label: 'OBBBA vs Current Law',
+    description: 'OBBBA impact compared to TCJA extension baseline'
   }
 };
 

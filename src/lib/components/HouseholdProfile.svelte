@@ -71,7 +71,7 @@
       netChange: household['Total change in net income'] || household['Change in Household Net Income'],
       percentChange: household['Percentage change in net income'],
       baselineNetIncome: household['Baseline Net Income'],
-      marketIncome: household['Market Income'] || household['Gross Income'],
+      marketIncome: household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'],
       allKeys: Object.keys(household).filter(k => k.includes('Income') || k.includes('Net'))
     });
     
@@ -97,7 +97,7 @@
     
     // Animate to actual values
     householdId.set(parseInt(household.id) || 0);
-    marketIncome.set(household['Market Income'] || household['Gross Income'] || 0);
+    marketIncome.set(household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0);
     baselineNetIncome.set(household['Baseline Net Income'] || 0);
     obbbaNetIncome.set((household['Baseline Net Income'] || 0) + (household['Total change in net income'] || household['Change in Household Net Income'] || 0));
     absoluteImpact.set(household['Total change in net income'] || household['Change in Household Net Income'] || 0);
@@ -372,7 +372,7 @@
     
     // Calculate total of itemized sources (excluding misc income)
     const itemizedTotal = sources.reduce((sum, s) => sum + (s.value || 0), 0);
-    const marketIncome = household['Market Income'] || 0;
+    const marketIncome = household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0;
     const miscIncome = household['Miscellaneous income'] || 0;
     const difference = marketIncome - itemizedTotal - miscIncome;
     

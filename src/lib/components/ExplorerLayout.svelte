@@ -5,7 +5,6 @@
 
   export let data = [];
   export let selectedDistrict = null;
-  export let isFullView = false;
 
   const dispatch = createEventDispatcher();
 
@@ -113,25 +112,18 @@
     dispatch('districtChange', { district: selectedDistrict, filteredData });
   }
 
-  // Toggle full view
-  function toggleFullView() {
-    isFullView = !isFullView;
-    dispatch('viewChange', { isFullView });
-  }
 
 </script>
 
-<div class="explorer-layout" class:full-view={isFullView}>
+<div class="explorer-layout">
   <!-- Map Panel -->
-  {#if !isFullView}
-    <div class="map-panel">
-      <DistrictMap
-        {data}
-        {selectedDistrict}
-        on:selectDistrict={handleDistrictSelect}
-      />
-    </div>
-  {/if}
+  <div class="map-panel">
+    <DistrictMap
+      {data}
+      {selectedDistrict}
+      on:selectDistrict={handleDistrictSelect}
+    />
+  </div>
 
   <!-- Scatter Panel -->
   <div class="scatter-panel">
@@ -147,23 +139,6 @@
         {/if}
       </div>
 
-      <div class="header-controls">
-        <button class="control-btn view-toggle" on:click={toggleFullView}>
-          {#if isFullView}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="1" y="2" width="5" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <rect x="8" y="2" width="7" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
-            </svg>
-            Show Map
-          {:else}
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="2" y="2" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M6 6L10 10M10 6L6 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            Full View
-          {/if}
-        </button>
-      </div>
     </div>
 
     <!-- Stats Bar -->
@@ -204,9 +179,6 @@
     background: var(--app-background, #fff);
   }
 
-  .explorer-layout.full-view {
-    grid-template-columns: 1fr;
-  }
 
   .map-panel {
     position: relative;
@@ -259,41 +231,6 @@
     color: #334155;
   }
 
-  .header-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .control-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    background: #fff;
-    font-family: 'Inter', sans-serif;
-    font-size: 13px;
-    font-weight: 500;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .control-btn:hover {
-    border-color: #94a3b8;
-    background: #f1f5f9;
-  }
-
-  .control-btn.view-toggle {
-    color: #319795;
-    border-color: #319795;
-  }
-
-  .control-btn.view-toggle:hover {
-    background: #f0fdfa;
-  }
 
   .stats-bar {
     display: flex;
@@ -351,10 +288,6 @@
     }
 
     .map-panel {
-      display: none;
-    }
-
-    .explorer-layout.full-view .map-panel {
       display: none;
     }
 

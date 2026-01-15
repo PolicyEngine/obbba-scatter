@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import { goto, afterNavigate } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { DATASETS } from '$lib/config/datasets.js';
+  import { districtDatasets } from '$lib/config/datasets.js';
   import ExplorerLayout from '$lib/components/ExplorerLayout.svelte';
   import ScatterPlot from '$lib/components/ScatterPlot.svelte';
   import HouseholdProfile from '$lib/components/HouseholdProfile.svelte';
@@ -15,9 +15,8 @@
   let filteredData = [];
   let isLoading = true;
   let loadError = null;
-  let selectedDataset = 'tcja-expiration';
+  let selectedDataset = 'obbba-vs-current-policy';
   let selectedDistrict = null;
-  let isFullView = false;
   let selectedHousehold = null;
 
   // Chart reference
@@ -89,7 +88,7 @@
     loadError = null;
 
     try {
-      const datasetConfig = DATASETS[selectedDataset];
+      const datasetConfig = districtDatasets[selectedDataset];
       if (!datasetConfig) {
         throw new Error(`Unknown dataset: ${selectedDataset}`);
       }
@@ -192,10 +191,6 @@
     goto(url.pathname + url.search, { replaceState: true, noScroll: true });
   }
 
-  // Handle view change
-  function handleViewChange(event) {
-    isFullView = event.detail.isFullView;
-  }
 
   // Update filtered data based on current district
   function updateFilteredData() {
@@ -216,6 +211,28 @@
     selectedHousehold = null;
   }
 
+  // Randomize to a different household
+  function randomizeHousehold() {
+    const currentData = selectedDistrict
+      ? data.filter(d => d['Congressional District'] === selectedDistrict)
+      : data;
+
+    if (currentData.length > 0) {
+      // Pick a random household (weighted by household weight)
+      const totalWeight = currentData.reduce((sum, d) => sum + (d['Household Weight'] || 1), 0);
+      let random = Math.random() * totalWeight;
+      let cumulative = 0;
+
+      for (const household of currentData) {
+        cumulative += household['Household Weight'] || 1;
+        if (random <= cumulative) {
+          selectedHousehold = household;
+          break;
+        }
+      }
+    }
+  }
+
   // Parse URL params on load
   function parseUrlParams() {
     const params = $page.url.searchParams;
@@ -226,7 +243,7 @@
     }
 
     const dataset = params.get('dataset');
-    if (dataset && DATASETS[dataset]) {
+    if (dataset && districtDatasets[dataset]) {
       selectedDataset = dataset;
     }
   }
@@ -272,7 +289,7 @@
 
     <div class="header-right">
       <select class="dataset-select" value={selectedDataset} on:change={handleDatasetChange}>
-        {#each Object.entries(DATASETS) as [key, config]}
+        {#each Object.entries(districtDatasets) as [key, config]}
           <option value={key}>{config.label}</option>
         {/each}
       </select>
@@ -295,9 +312,7 @@
       <ExplorerLayout
         {data}
         bind:selectedDistrict
-        bind:isFullView
         on:districtChange={handleDistrictChange}
-        on:viewChange={handleViewChange}
       >
         <div slot="scatter" let:filteredData class="scatter-wrapper">
           <ScatterPlot
@@ -326,7 +341,7 @@
             <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </button>
-        <HouseholdProfile household={selectedHousehold} />
+        <HouseholdProfile household={selectedHousehold} onRandomize={randomizeHousehold} />
       </div>
     </div>
   {/if}
@@ -475,10 +490,12 @@
     position: relative;
     background: #fff;
     border-radius: 12px;
-    max-width: 500px;
-    max-height: 80vh;
+    width: 90vw;
+    max-width: 650px;
+    max-height: 85vh;
     overflow: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    padding: 8px;
   }
 
   .close-btn {

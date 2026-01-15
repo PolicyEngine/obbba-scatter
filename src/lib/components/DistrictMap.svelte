@@ -14,6 +14,7 @@
   let districtAggregates = {};
   let mapLoading = true;
   let mapError = null;
+  let geoJsonData = null; // Store the GeoJSON for re-coloring
 
   // State FIPS to name mapping
   const STATE_FIPS_NAMES = {
@@ -31,10 +32,16 @@
     53: "Washington", 54: "West Virginia", 55: "Wisconsin", 56: "Wyoming"
   };
 
-  // Color scale for the map
+  // Color scales for the map
+  // For avgChange: diverging scale (red for negative, green for positive)
   const POSITIVE_COLORS = ['#E6FFFA', '#B2F5EA', '#81E6D9', '#4FD1C5', '#38B2AC', '#319795'];
   const NEGATIVE_COLORS = ['#FEE2E2', '#FECACA', '#FCA5A5', '#F87171', '#EF4444', '#DC2626'];
   const NEUTRAL_COLOR = '#E2E8F0';
+
+  // For pctWinners: grey to green (0% to 100%)
+  const WINNERS_COLORS = ['#E2E8F0', '#B2F5EA', '#81E6D9', '#4FD1C5', '#38B2AC', '#319795'];
+  // For pctLosers: grey to red (0% to 100%)
+  const LOSERS_COLORS = ['#E2E8F0', '#FECACA', '#FCA5A5', '#F87171', '#EF4444', '#DC2626'];
 
   // Compute district-level aggregates from household data
   function computeDistrictAggregates(households) {
@@ -85,36 +92,38 @@
     const agg = aggregates[districtId];
     if (!agg) return NEUTRAL_COLOR;
 
-    let value;
-    let maxPos, maxNeg;
-
     if (metricKey === 'avgChange') {
-      value = agg.avgChange;
-      maxPos = 5; // +5% max
-      maxNeg = -5; // -5% min
+      // Diverging scale: red for negative, green for positive
+      const value = agg.avgChange;
+      const maxPos = 5; // +5% max
+      const maxNeg = -5; // -5% min
+
+      if (Math.abs(value) < 0.1) return NEUTRAL_COLOR;
+
+      if (value > 0) {
+        const ratio = Math.min(value / maxPos, 1);
+        const idx = Math.floor(ratio * (POSITIVE_COLORS.length - 1));
+        return POSITIVE_COLORS[idx];
+      } else {
+        const ratio = Math.min(Math.abs(value) / Math.abs(maxNeg), 1);
+        const idx = Math.floor(ratio * (NEGATIVE_COLORS.length - 1));
+        return NEGATIVE_COLORS[idx];
+      }
     } else if (metricKey === 'pctWinners') {
-      value = agg.pctWinners - 50; // Center at 50%
-      maxPos = 50;
-      maxNeg = -50;
+      // Sequential scale: grey (0%) to green (100%)
+      const value = agg.pctWinners;
+      const ratio = Math.min(value / 100, 1);
+      const idx = Math.floor(ratio * (WINNERS_COLORS.length - 1));
+      return WINNERS_COLORS[idx];
     } else if (metricKey === 'pctLosers') {
-      value = agg.pctLosers - 50;
-      maxPos = 50;
-      maxNeg = -50;
-    } else {
-      return NEUTRAL_COLOR;
+      // Sequential scale: grey (0%) to red (100%)
+      const value = agg.pctLosers;
+      const ratio = Math.min(value / 100, 1);
+      const idx = Math.floor(ratio * (LOSERS_COLORS.length - 1));
+      return LOSERS_COLORS[idx];
     }
 
-    if (Math.abs(value) < 0.1) return NEUTRAL_COLOR;
-
-    if (value > 0) {
-      const ratio = Math.min(value / maxPos, 1);
-      const idx = Math.floor(ratio * (POSITIVE_COLORS.length - 1));
-      return POSITIVE_COLORS[idx];
-    } else {
-      const ratio = Math.min(Math.abs(value) / Math.abs(maxNeg), 1);
-      const idx = Math.floor(ratio * (NEGATIVE_COLORS.length - 1));
-      return NEGATIVE_COLORS[idx];
-    }
+    return NEUTRAL_COLOR;
   }
 
   // Transform Alaska coordinates - position in bottom left
@@ -254,11 +263,14 @@
         return f;
       });
 
-      // Enrich with colors based on current data
-      const enrichedGeoData = enrichGeoData({
+      // Store the base GeoJSON for re-coloring when metric changes
+      geoJsonData = {
         type: 'FeatureCollection',
         features: transformedFeatures
-      });
+      };
+
+      // Enrich with colors based on current data
+      const enrichedGeoData = enrichGeoData(geoJsonData);
 
       // Add source and layers
       map.addSource('districts', {
@@ -359,15 +371,13 @@
 
   // Update map colors when data or metric changes
   function updateMapColors() {
-    if (!map || !map.getSource('districts')) return;
+    if (!map || !map.getSource('districts') || !geoJsonData) {
+      return;
+    }
 
     const source = map.getSource('districts');
-    const currentData = source._data;
-
-    if (currentData && currentData.features) {
-      const enriched = enrichGeoData(currentData);
-      source.setData(enriched);
-    }
+    const enriched = enrichGeoData(geoJsonData);
+    source.setData(enriched);
 
     // Update selected district outline
     if (map.getLayer('districts-selected')) {
@@ -390,9 +400,8 @@
     updateMapColors();
   }
 
-  $: if (metric) {
-    updateMapColors();
-  }
+  // Re-run when metric changes to any value
+  $: metric, updateMapColors();
 
   onMount(() => {
     initMap();
@@ -438,11 +447,17 @@
     <div class="map-legend">
       <div class="legend-title">{getMetricLabel(metric)}</div>
       <div class="legend-scale">
-        <div class="legend-gradient"></div>
+        <div class="legend-gradient" class:winners={metric === 'pctWinners'} class:losers={metric === 'pctLosers'}></div>
         <div class="legend-labels">
-          <span>{metric === 'avgChange' ? '+5%' : '100%'}</span>
-          <span>{metric === 'avgChange' ? '0%' : '50%'}</span>
-          <span>{metric === 'avgChange' ? '-5%' : '0%'}</span>
+          {#if metric === 'avgChange'}
+            <span>+5%</span>
+            <span>0%</span>
+            <span>-5%</span>
+          {:else}
+            <span>100%</span>
+            <span>50%</span>
+            <span>0%</span>
+          {/if}
         </div>
       </div>
     </div>
@@ -654,6 +669,7 @@
     width: 8px;
     height: 40px;
     border-radius: 2px;
+    /* Default: diverging scale for avgChange */
     background: linear-gradient(
       to bottom,
       #319795,
@@ -661,6 +677,30 @@
       #E2E8F0,
       #FCA5A5,
       #EF4444
+    );
+  }
+
+  .legend-gradient.winners {
+    /* Grey to green for % Winners (0% to 100%) */
+    background: linear-gradient(
+      to bottom,
+      #319795,
+      #4FD1C5,
+      #81E6D9,
+      #B2F5EA,
+      #E2E8F0
+    );
+  }
+
+  .legend-gradient.losers {
+    /* Grey to red for % Losers (0% to 100%) */
+    background: linear-gradient(
+      to bottom,
+      #DC2626,
+      #EF4444,
+      #F87171,
+      #FECACA,
+      #E2E8F0
     );
   }
 
