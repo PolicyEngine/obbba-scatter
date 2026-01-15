@@ -97,14 +97,31 @@ def obbba_exemption_reform():
     }, country_id="us")
 
 
-def obbba_ctc_reform():
+def obbba_ctc_ssn_reform():
     """
-    OBBBA Child Tax Credit provisions.
-    Reverts to OBBBA CTC values including SSN requirement.
+    OBBBA Child Tax Credit SSN requirement.
+    Requires valid SSN for CTC eligibility.
+    """
+    return Reform.from_dict({
+        "gov.irs.credits.ctc.adult_ssn_requirement_applies": {
+            "2026-01-01.2100-12-31": True
+        },
+    }, country_id="us")
+
+
+def obbba_ctc_expansion_reform():
+    """
+    OBBBA Child Tax Credit expansion provisions.
+    Increased CTC amount, higher phase-out thresholds, adult dependent credit.
     """
     return Reform.from_dict({
         "gov.irs.credits.ctc.amount.base[0].amount": {
-            "2026-01-01.2100-12-31": 2200
+            "2025-01-01.2026-12-31": 2200,
+            "2027-01-01.2028-12-31": 2300,
+            "2029-01-01.2030-12-31": 2400,
+            "2031-01-01.2032-12-31": 2500,
+            "2033-01-01.2034-12-31": 2600,
+            "2035-01-01.2100-12-31": 2700,
         },
         "gov.irs.credits.ctc.amount.adult_dependent": {
             "2026-01-01.2100-12-31": 500
@@ -125,14 +142,14 @@ def obbba_ctc_reform():
             "2026-01-01.2100-12-31": 400000
         },
         "gov.irs.credits.ctc.refundable.individual_max": {
-            "2026-01-01.2026-12-31": 1800,
+            "2026-01-01.2026-12-31": 1700,
+            "2027-01-01.2028-12-31": 1800,
+            "2029-01-01.2031-12-31": 1900,
+            "2032-01-01.2033-12-31": 2000,
+            "2034-01-01.2100-12-31": 2100,
         },
         "gov.irs.credits.ctc.refundable.phase_in.threshold": {
             "2026-01-01.2100-12-31": 2500
-        },
-        # SSN requirement for CTC (OBBBA provision)
-        "gov.irs.credits.ctc.adult_ssn_requirement_applies": {
-            "2026-01-01.2100-12-31": True
         },
     }, country_id="us")
 
@@ -337,21 +354,21 @@ def obbba_other_item_reform():
         "gov.irs.deductions.itemized.interest.mortgage.cap.HEAD_OF_HOUSEHOLD": {
             "2026-01-01.2100-12-31": 750000
         },
-        # Charity non-itemizers - all filing statuses
+        # Charity non-itemizers - all filing statuses (OBBBA provision: $2,000/$1,000)
         "gov.irs.deductions.itemized.charity.non_itemizers_amount.JOINT": {
-            "2025-01-01.2028-12-31": 300
+            "2025-01-01.2028-12-31": 2000
         },
         "gov.irs.deductions.itemized.charity.non_itemizers_amount.SINGLE": {
-            "2025-01-01.2028-12-31": 150
+            "2025-01-01.2028-12-31": 1000
         },
         "gov.irs.deductions.itemized.charity.non_itemizers_amount.SEPARATE": {
-            "2025-01-01.2028-12-31": 150
+            "2025-01-01.2028-12-31": 1000
         },
         "gov.irs.deductions.itemized.charity.non_itemizers_amount.HEAD_OF_HOUSEHOLD": {
-            "2025-01-01.2028-12-31": 150
+            "2025-01-01.2028-12-31": 1000
         },
         "gov.irs.deductions.itemized.charity.non_itemizers_amount.SURVIVING_SPOUSE": {
-            "2025-01-01.2028-12-31": 300
+            "2025-01-01.2028-12-31": 2000
         },
     }, country_id="us")
 
@@ -422,7 +439,8 @@ def get_obbba_provisions():
         "Tax Rate Reform": obbba_tax_rate_reform(),
         "Standard Deduction Reform": obbba_standard_deduction_reform(),
         "Exemption Reform": obbba_exemption_reform(),
-        "CTC Reform": obbba_ctc_reform(),
+        "CTC SSN Requirement": obbba_ctc_ssn_reform(),
+        "CTC Expansion": obbba_ctc_expansion_reform(),
         "CDCC Reform": obbba_cdcc_reform(),
         "QBI Deduction Reform": obbba_qbi_reform(),
         "AMT Reform": obbba_amt_reform(),

@@ -83,9 +83,29 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
     baseline_income_tax = baseline.calculate(
         "income_tax", map_to="household", period=year
     ).values
-    baseline_net_income = baseline.calculate(
-        "household_net_income", map_to="household", period=year
+    baseline_state_income_tax = baseline.calculate(
+        "state_income_tax", map_to="household", period=year
     ).values
+    baseline_net_income = baseline.calculate(
+        "household_net_income_including_health_benefits", map_to="household", period=year
+    ).values
+
+    # Get baseline benefit values (to match national analysis)
+    baseline_benefits = baseline.calculate(
+        "household_benefits", map_to="household", period=year
+    ).values
+    baseline_medicaid = baseline.calculate(
+        "medicaid", map_to="household", period=year
+    ).values
+    baseline_aca_ptc = baseline.calculate(
+        "aca_ptc", map_to="household", period=year
+    ).values
+    baseline_chip = baseline.calculate(
+        "chip", map_to="household", period=year
+    ).values
+    baseline_total_benefits = (
+        baseline_benefits + baseline_medicaid + baseline_aca_ptc + baseline_chip
+    )
 
     # Get household-level characteristics
     household_id = baseline.calculate(
@@ -109,6 +129,41 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
     agi = baseline.calculate(
         "adjusted_gross_income", map_to="household", period=year
     ).values
+    num_dependents = baseline.calculate(
+        "tax_unit_dependents", map_to="household", period=year
+    ).values
+
+    # Get SSN card type data (person-level, then aggregate to household)
+    ssn_card_type = baseline.calculate(
+        "ssn_card_type", map_to="person", period=year
+    ).values
+    person_household_id = baseline.calculate(
+        "household_id", map_to="person", period=year
+    ).values
+
+    # Create person-level DataFrame for SSN aggregation
+    person_df = pd.DataFrame({
+        "household_id": person_household_id,
+        "ssn_card_type": ssn_card_type,
+    })
+
+    # Count by SSN type per household
+    # CITIZEN or NON_CITIZEN_VALID_EAD = valid SSN for tax purposes
+    ssn_valid = (
+        person_df[person_df["ssn_card_type"].isin(["CITIZEN", "NON_CITIZEN_VALID_EAD"])]
+        .groupby("household_id")
+        .size()
+    )
+    # OTHER_NON_CITIZEN or NONE = no valid SSN
+    ssn_invalid = (
+        person_df[person_df["ssn_card_type"].isin(["OTHER_NON_CITIZEN", "NONE"])]
+        .groupby("household_id")
+        .size()
+    )
+
+    # Reindex to all households, fill missing with 0
+    ssn_valid_count = ssn_valid.reindex(household_id, fill_value=0).values
+    ssn_invalid_count = ssn_invalid.reindex(household_id, fill_value=0).values
 
     # Fix congressional district GEOID for at-large states
     # Census uses XX00 for at-large, policyengine uses XX01
@@ -124,16 +179,27 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
         "Congressional District": congressional_district_fixed,
         "Household Weight": household_weight,
         "Household Size": household_size,
+        "Number of Dependents": num_dependents,
         "Employment Income": employment_income,
         "Adjusted Gross Income": agi,
+        "Num with Valid SSN": ssn_valid_count,
+        "Num without Valid SSN": ssn_invalid_count,
         "Baseline Federal Tax Liability": baseline_income_tax,
+        "Baseline State Tax Liability": baseline_state_income_tax,
         "Baseline Net Income": baseline_net_income,
+        "Baseline Benefits": baseline_benefits,
+        "Baseline Medicaid": baseline_medicaid,
+        "Baseline ACA PTC": baseline_aca_ptc,
+        "Baseline CHIP": baseline_chip,
+        "Baseline Total Benefits": baseline_total_benefits,
     }
 
     # Track cumulative values
     cumulative_reform = baseline_reform
     previous_income_tax = baseline_income_tax.copy()
+    previous_state_income_tax = baseline_state_income_tax.copy()
     previous_net_income = baseline_net_income.copy()
+    previous_total_benefits = baseline_total_benefits.copy()
 
     # Apply each reform sequentially (stacking OBBBA provisions)
     for reform_name, reform in reforms.items():
@@ -149,27 +215,57 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
         reformed_income_tax = reformed.calculate(
             "income_tax", map_to="household", period=year
         ).values
-        reformed_net_income = reformed.calculate(
-            "household_net_income", map_to="household", period=year
+        reformed_state_income_tax = reformed.calculate(
+            "state_income_tax", map_to="household", period=year
         ).values
+        reformed_net_income = reformed.calculate(
+            "household_net_income_including_health_benefits", map_to="household", period=year
+        ).values
+
+        # Get reformed benefit values
+        reformed_benefits = reformed.calculate(
+            "household_benefits", map_to="household", period=year
+        ).values
+        reformed_medicaid = reformed.calculate(
+            "medicaid", map_to="household", period=year
+        ).values
+        reformed_aca_ptc = reformed.calculate(
+            "aca_ptc", map_to="household", period=year
+        ).values
+        reformed_chip = reformed.calculate(
+            "chip", map_to="household", period=year
+        ).values
+        reformed_total_benefits = (
+            reformed_benefits + reformed_medicaid + reformed_aca_ptc + reformed_chip
+        )
 
         # Calculate incremental changes (from previous state)
         tax_change = reformed_income_tax - previous_income_tax
+        state_tax_change = reformed_state_income_tax - previous_state_income_tax
         net_income_change = reformed_net_income - previous_net_income
+        benefits_change = reformed_total_benefits - previous_total_benefits
 
         # Store results
         results[f"Change in federal tax after {reform_name}"] = tax_change
+        results[f"Change in state tax after {reform_name}"] = state_tax_change
         results[f"Change in net income after {reform_name}"] = net_income_change
+        results[f"Change in benefits after {reform_name}"] = benefits_change
 
         # Update previous values for next iteration
         previous_income_tax = reformed_income_tax.copy()
+        previous_state_income_tax = reformed_state_income_tax.copy()
         previous_net_income = reformed_net_income.copy()
+        previous_total_benefits = reformed_total_benefits.copy()
 
     # Add final total changes (from baseline to fully reformed = full OBBBA impact)
     results["Final Federal Tax Liability"] = previous_income_tax
+    results["Final State Tax Liability"] = previous_state_income_tax
     results["Final Net Income"] = previous_net_income
+    results["Final Total Benefits"] = previous_total_benefits
     results["Total change in federal tax"] = previous_income_tax - baseline_income_tax
+    results["Total change in state tax"] = previous_state_income_tax - baseline_state_income_tax
     results["Total change in net income"] = previous_net_income - baseline_net_income
+    results["Total change in benefits"] = previous_total_benefits - baseline_total_benefits
 
     # Calculate percentage changes
     pct_tax_change = np.zeros_like(baseline_income_tax)
@@ -180,6 +276,14 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
     ) * 100
     results["Percentage change in federal tax"] = pct_tax_change
 
+    pct_state_tax_change = np.zeros_like(baseline_state_income_tax)
+    mask = baseline_state_income_tax != 0
+    pct_state_tax_change[mask] = (
+        results["Total change in state tax"][mask]
+        / np.abs(baseline_state_income_tax[mask])
+    ) * 100
+    results["Percentage change in state tax"] = pct_state_tax_change
+
     pct_net_income_change = np.zeros_like(baseline_net_income)
     mask = baseline_net_income != 0
     pct_net_income_change[mask] = (
@@ -187,6 +291,14 @@ def calculate_state_obbba_impacts(reforms, baseline_reform, year, state_code):
         / np.abs(baseline_net_income[mask])
     ) * 100
     results["Percentage change in net income"] = pct_net_income_change
+
+    pct_benefits_change = np.zeros_like(baseline_total_benefits)
+    mask = baseline_total_benefits != 0
+    pct_benefits_change[mask] = (
+        results["Total change in benefits"][mask]
+        / np.abs(baseline_total_benefits[mask])
+    ) * 100
+    results["Percentage change in benefits"] = pct_benefits_change
 
     # Create DataFrame
     df = pd.DataFrame(results)

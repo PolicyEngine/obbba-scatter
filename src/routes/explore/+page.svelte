@@ -28,7 +28,7 @@
       id: 'all',
       title: 'All Households',
       filter: () => true,
-      xDomain: [-15, 15],
+      xDomain: [-20, 20],
       yDomain: [0, 500000],
       viewType: 'all'
     }
