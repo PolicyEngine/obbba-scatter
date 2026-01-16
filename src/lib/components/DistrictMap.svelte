@@ -2,8 +2,9 @@
   import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { base } from '$app/paths';
   import { COLORS } from '../config/colors.js';
+  import { districtDatasets } from '../config/datasets.js';
 
-  export let data = [];
+  export let dataset = 'obbba-vs-current-law'; // Which pre-aggregated file to load
   export let selectedDistrict = null; // null = nationwide
   export let metric = 'avgChange'; // 'avgChange', 'pctWinners', 'pctLosers'
 
@@ -15,6 +16,8 @@
   let mapLoading = true;
   let mapError = null;
   let geoJsonData = null; // Store the GeoJSON for re-coloring
+  let aggregatesLoaded = false;
+  let currentLoadedDataset = null; // Track which dataset is loaded
 
   // State FIPS to name mapping
   const STATE_FIPS_NAMES = {
@@ -33,15 +36,15 @@
   };
 
   // Color scales for the map
-  // For avgChange: diverging scale (red for negative, green for positive)
+  // For avgChange: diverging scale (grey for negative, green for positive, white at 0)
   const POSITIVE_COLORS = ['#E6FFFA', '#B2F5EA', '#81E6D9', '#4FD1C5', '#38B2AC', '#319795'];
-  const NEGATIVE_COLORS = ['#FEE2E2', '#FECACA', '#FCA5A5', '#F87171', '#EF4444', '#DC2626'];
-  const NEUTRAL_COLOR = '#E2E8F0';
+  const NEGATIVE_COLORS = ['#F5F5F5', '#E0E0E0', '#BDBDBD', '#9E9E9E', '#757575', '#616161'];
+  const NEUTRAL_COLOR = '#FFFFFF';
 
-  // For pctWinners: grey to green (0% to 100%)
-  const WINNERS_COLORS = ['#E2E8F0', '#B2F5EA', '#81E6D9', '#4FD1C5', '#38B2AC', '#319795'];
-  // For pctLosers: grey to red (0% to 100%)
-  const LOSERS_COLORS = ['#E2E8F0', '#FECACA', '#FCA5A5', '#F87171', '#EF4444', '#DC2626'];
+  // For pctWinners: white to green (0% to 100%)
+  const WINNERS_COLORS = ['#FFFFFF', '#B2F5EA', '#81E6D9', '#4FD1C5', '#38B2AC', '#319795'];
+  // For pctLosers: white to grey (0% to 100%)
+  const LOSERS_COLORS = ['#FFFFFF', '#E0E0E0', '#BDBDBD', '#9E9E9E', '#757575', '#616161'];
 
   // Compute district-level aggregates from household data
   function computeDistrictAggregates(households) {
@@ -87,13 +90,50 @@
     return aggregates;
   }
 
+  // Load pre-aggregated district data (tiny ~14KB file instead of computing from 1M+ rows)
+  async function loadAggregates() {
+    const config = districtDatasets[dataset];
+    if (!config || !config.aggregateFilename) {
+      console.error('No aggregate file for dataset:', dataset);
+      return;
+    }
+
+    const url = `${base}/${config.aggregateFilename}`;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to load: ${response.statusText}`);
+
+      const text = await response.text();
+      const lines = text.trim().split('\n');
+
+      districtAggregates = {};
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        const district = parseInt(values[0], 10);
+        districtAggregates[district] = {
+          avgChange: parseFloat(values[1]),
+          pctWinners: parseFloat(values[2]),
+          pctLosers: parseFloat(values[3]),
+          households: parseInt(values[4], 10)
+        };
+      }
+
+      console.log('Loaded aggregates for', Object.keys(districtAggregates).length, 'districts');
+      currentLoadedDataset = dataset;
+      aggregatesLoaded = true;
+      updateMapColors();
+    } catch (error) {
+      console.error('Error loading aggregates:', error);
+    }
+  }
+
   // Get color for a district based on its metric value
   function getDistrictColor(districtId, aggregates, metricKey) {
     const agg = aggregates[districtId];
     if (!agg) return NEUTRAL_COLOR;
 
     if (metricKey === 'avgChange') {
-      // Diverging scale: red for negative, green for positive
+      // Diverging scale: grey for negative, green for positive, white at 0
       const value = agg.avgChange;
       const maxPos = 5; // +5% max
       const maxNeg = -5; // -5% min
@@ -116,7 +156,7 @@
       const idx = Math.floor(ratio * (WINNERS_COLORS.length - 1));
       return WINNERS_COLORS[idx];
     } else if (metricKey === 'pctLosers') {
-      // Sequential scale: grey (0%) to red (100%)
+      // Sequential scale: white (0%) to grey (100%)
       const value = agg.pctLosers;
       const ratio = Math.min(value / 100, 1);
       const idx = Math.floor(ratio * (LOSERS_COLORS.length - 1));
@@ -213,6 +253,9 @@
           [[-128, 24], [-66, 50]], // [[west, south], [east, north]]
           { padding: 10, duration: 0 }
         );
+
+        // Load pre-aggregated data first (fast 14KB file)
+        await loadAggregates();
 
         await loadDistrictData();
         setupMapEventHandlers();
@@ -350,11 +393,13 @@
       map.getCanvas().style.cursor = '';
     });
 
-    // Click to select
+    // Click to select/toggle
     map.on('click', 'districts-fill', (e) => {
       if (e.features.length > 0) {
         const geoid = e.features[0].properties.geoid;
-        dispatch('selectDistrict', { district: geoid });
+        // Toggle: if clicking same district, deselect it
+        const newDistrict = geoid === selectedDistrict ? null : geoid;
+        dispatch('selectDistrict', { district: newDistrict });
       }
     });
   }
@@ -390,10 +435,10 @@
     }
   }
 
-  // Reactive updates
-  $: {
-    districtAggregates = computeDistrictAggregates(data);
-    updateMapColors();
+  // Reactive updates - reload aggregates when dataset changes
+  $: if (dataset && currentLoadedDataset && dataset !== currentLoadedDataset) {
+    // Re-load aggregates if dataset switches
+    loadAggregates();
   }
 
   $: if (selectedDistrict !== undefined) {
@@ -435,6 +480,11 @@
         <div class="map-loading">
           <div class="spinner"></div>
           <span>Loading map...</span>
+        </div>
+      {:else if !aggregatesLoaded}
+        <div class="map-loading">
+          <div class="spinner"></div>
+          <span>Loading district data...</span>
         </div>
       {/if}
       {#if mapError}
@@ -482,10 +532,6 @@
             <div class="mini-stat">
               <span class="mini-value negative">{agg.pctLosers.toFixed(0)}%</span>
               <span class="mini-label">lose</span>
-            </div>
-            <div class="mini-stat">
-              <span class="mini-value">{(agg.households / 1000).toFixed(0)}K</span>
-              <span class="mini-label">households</span>
             </div>
           </div>
         {/if}
@@ -681,38 +727,38 @@
     width: 8px;
     height: 40px;
     border-radius: 2px;
-    /* Default: diverging scale for avgChange */
+    /* Default: diverging scale for avgChange (green positive, white zero, grey negative) */
     background: linear-gradient(
       to bottom,
       #319795,
       #81E6D9,
-      #E2E8F0,
-      #FCA5A5,
-      #EF4444
+      #FFFFFF,
+      #BDBDBD,
+      #616161
     );
   }
 
   .legend-gradient.winners {
-    /* Grey to green for % Winners (0% to 100%) */
+    /* White to green for % Winners (0% to 100%) */
     background: linear-gradient(
       to bottom,
       #319795,
       #4FD1C5,
       #81E6D9,
       #B2F5EA,
-      #E2E8F0
+      #FFFFFF
     );
   }
 
   .legend-gradient.losers {
-    /* Grey to red for % Losers (0% to 100%) */
+    /* White to grey for % Losers (0% to 100%) */
     background: linear-gradient(
       to bottom,
-      #DC2626,
-      #EF4444,
-      #F87171,
-      #FECACA,
-      #E2E8F0
+      #616161,
+      #9E9E9E,
+      #BDBDBD,
+      #E0E0E0,
+      #FFFFFF
     );
   }
 

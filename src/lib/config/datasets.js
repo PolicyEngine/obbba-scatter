@@ -15,12 +15,16 @@ export const datasets = {
 // Dataset configuration for district explorer (OBBBA comparisons)
 export const districtDatasets = {
   'obbba-vs-current-policy': {
-    filename: 'district_obbba_impacts.csv',
+    filename: 'district_obbba_impacts_sample.csv',  // Sampled for fast loading
+    fullFilename: 'district_obbba_impacts.csv',     // Full dataset
+    aggregateFilename: 'district_aggregates.csv',
     label: 'TCJA Expiration',
     description: 'OBBBA impact compared to TCJA expiration baseline'
   },
   'obbba-vs-current-law': {
-    filename: 'district_obbba_impacts_current_law.csv',
+    filename: 'district_obbba_impacts_current_law_sample.csv',  // Sampled for fast loading
+    fullFilename: 'district_obbba_impacts_current_law.csv',     // Full dataset
+    aggregateFilename: 'district_aggregates_current_law.csv',
     label: 'TCJA Extension',
     description: 'OBBBA impact compared to TCJA extension baseline'
   }

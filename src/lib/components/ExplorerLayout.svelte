@@ -3,7 +3,7 @@
   import DistrictMap from './DistrictMap.svelte';
   import { COLORS } from '../config/colors.js';
 
-  export let data = [];
+  export let dataset = 'obbba-vs-current-law'; // Which dataset for map aggregates
   export let selectedDistrict = null;
 
   const dispatch = createEventDispatcher();
@@ -34,46 +34,6 @@
     47: "Tennessee", 48: "Texas", 49: "Utah", 50: "Vermont", 51: "Virginia",
     53: "Washington", 54: "West Virginia", 55: "Wisconsin", 56: "Wyoming"
   };
-
-  // Filter data based on selected district
-  $: filteredData = selectedDistrict
-    ? data.filter(d => d['Congressional District'] === selectedDistrict)
-    : data;
-
-  // Compute stats for the current selection
-  $: selectionStats = computeStats(filteredData);
-
-  function computeStats(households) {
-    if (!households || households.length === 0) {
-      return { total: 0, avgChange: 0, pctWinners: 0, pctLosers: 0 };
-    }
-
-    let totalWeight = 0;
-    let positiveWeight = 0;
-    let negativeWeight = 0;
-    let weightedChangeSum = 0;
-
-    households.forEach(d => {
-      const weight = d['Household Weight'] || 1;
-      const change = d['Percentage change in net income'] || 0;
-
-      totalWeight += weight;
-      weightedChangeSum += change * weight;
-
-      if (change > 0.1) {
-        positiveWeight += weight;
-      } else if (change < -0.1) {
-        negativeWeight += weight;
-      }
-    });
-
-    return {
-      total: totalWeight,
-      avgChange: totalWeight > 0 ? weightedChangeSum / totalWeight : 0,
-      pctWinners: totalWeight > 0 ? (positiveWeight / totalWeight) * 100 : 0,
-      pctLosers: totalWeight > 0 ? (negativeWeight / totalWeight) * 100 : 0
-    };
-  }
 
   // Format district name
   function formatDistrictName(geoid) {
@@ -109,7 +69,7 @@
   // Handle district selection from map
   function handleDistrictSelect(event) {
     selectedDistrict = event.detail.district;
-    dispatch('districtChange', { district: selectedDistrict, filteredData });
+    dispatch('districtChange', { district: selectedDistrict });
   }
 
 
@@ -119,7 +79,7 @@
   <!-- Map Panel -->
   <div class="map-panel">
     <DistrictMap
-      {data}
+      {dataset}
       {selectedDistrict}
       on:selectDistrict={handleDistrictSelect}
     />
@@ -129,7 +89,7 @@
   <div class="scatter-panel">
     <!-- Scatter Plot Container (slot for the actual scatter) -->
     <div class="scatter-content">
-      <slot name="scatter" {filteredData}></slot>
+      <slot name="scatter"></slot>
     </div>
   </div>
 </div>
@@ -142,7 +102,6 @@
     gap: 0;
     background: var(--app-background, #fff);
   }
-
 
   .map-panel {
     position: relative;

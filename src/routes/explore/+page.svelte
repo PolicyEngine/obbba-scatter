@@ -10,10 +10,8 @@
   import { COLORS } from '$lib/config/colors.js';
 
   // Data state
-  let allDatasets = {};
   let data = [];
-  let filteredData = [];
-  let isLoading = true;
+  let isLoading = false;
   let loadError = null;
   let selectedDataset = 'obbba-vs-current-policy';
   let selectedDistrict = null;
@@ -82,52 +80,62 @@
     return mockData;
   }
 
-  // Load data
-  async function loadData() {
+  // Dataset folder mapping
+  const datasetFolders = {
+    'obbba-vs-current-policy': 'districts/tcja-expiration',
+    'obbba-vs-current-law': 'districts/tcja-extension'
+  };
+
+  // Cache for loaded district data
+  let districtDataCache = {};
+
+  // Load data for a specific district (on-demand)
+  async function loadDistrictData(district) {
+    if (!district) {
+      data = [];
+      return;
+    }
+
+    const cacheKey = `${selectedDataset}_${district}`;
+    if (districtDataCache[cacheKey]) {
+      data = districtDataCache[cacheKey];
+      console.log(`Using cached data for district ${district}: ${data.length} households`);
+      return;
+    }
+
     isLoading = true;
     loadError = null;
 
     try {
-      const datasetConfig = districtDatasets[selectedDataset];
-      if (!datasetConfig) {
+      const folder = datasetFolders[selectedDataset];
+      if (!folder) {
         throw new Error(`Unknown dataset: ${selectedDataset}`);
       }
 
-      // Build the URL with base path
       const basePath = import.meta.env.BASE_URL || '/';
       const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
-      const url = `${normalizedBase}${datasetConfig.filename}`;
+      const url = `${normalizedBase}${folder}/district_${district}.csv`;
 
+      console.log('Loading district data from:', url);
       const response = await fetch(url);
 
       if (!response.ok) {
-        throw new Error(`Failed to load dataset: ${response.statusText}`);
+        throw new Error(`District ${district} data not available`);
       }
 
       const text = await response.text();
+      console.log('CSV loaded, size:', (text.length / 1024 / 1024).toFixed(1), 'MB');
       const parsed = parseCSV(text);
 
-      // Check if data has Congressional District field
-      if (parsed.length > 0 && !parsed[0].hasOwnProperty('Congressional District')) {
-        console.warn('Data does not have Congressional District field. Using mock data for demo.');
-        // Use mock data for demo
-        data = generateMockData(5000);
-      } else {
-        data = parsed;
-      }
+      data = parsed;
+      districtDataCache[cacheKey] = data;
 
-      allDatasets[selectedDataset] = data;
-      filteredData = data;
-
-      console.log(`Loaded ${data.length} households`);
+      console.log(`Loaded ${data.length} households for district ${district}`);
 
     } catch (error) {
-      console.error('Error loading data, using mock data:', error);
-      // Fall back to mock data on any error
-      data = generateMockData(5000);
-      allDatasets[selectedDataset] = data;
-      filteredData = data;
-      console.log(`Using mock data: ${data.length} households`);
+      console.error('Error loading district data:', error);
+      loadError = error.message;
+      data = [];
     } finally {
       isLoading = false;
     }
@@ -161,44 +169,25 @@
     return data;
   }
 
-  // Handle dataset change
-  function handleDatasetChange(event) {
-    selectedDataset = event.target.value;
-
-    if (allDatasets[selectedDataset]) {
-      data = allDatasets[selectedDataset];
-      updateFilteredData();
-    } else {
-      loadData();
-    }
-  }
-
-  // Handle district selection
-  function handleDistrictChange(event) {
-    selectedDistrict = event.detail.district;
-    filteredData = event.detail.filteredData;
+  // Handle district selection - load data on-demand
+  async function handleDistrictChange(event) {
+    const newDistrict = event.detail.district;
 
     // Clear selected household when changing districts
     selectedHousehold = null;
 
     // Update URL
     const url = new URL(window.location.href);
-    if (selectedDistrict) {
-      url.searchParams.set('district', selectedDistrict);
+    if (newDistrict) {
+      url.searchParams.set('district', newDistrict);
     } else {
       url.searchParams.delete('district');
     }
     goto(url.pathname + url.search, { replaceState: true, noScroll: true });
-  }
 
-
-  // Update filtered data based on current district
-  function updateFilteredData() {
-    if (selectedDistrict) {
-      filteredData = data.filter(d => d['Congressional District'] === selectedDistrict);
-    } else {
-      filteredData = data;
-    }
+    // Update selected district and load data
+    selectedDistrict = newDistrict;
+    await loadDistrictData(newDistrict);
   }
 
   // Handle point click
@@ -240,6 +229,8 @@
     const district = params.get('district');
     if (district) {
       selectedDistrict = parseInt(district, 10);
+    } else {
+      selectedDistrict = null; // Reset if no district in URL
     }
 
     const dataset = params.get('dataset');
@@ -248,21 +239,16 @@
     }
   }
 
-  // Load data on mount and after navigation
-  onMount(() => {
+  // Load data on mount (only if district is in URL)
+  onMount(async () => {
     parseUrlParams();
-    loadData();
-  });
-
-  afterNavigate(() => {
-    if (browser && data.length === 0) {
-      parseUrlParams();
-      loadData();
+    if (selectedDistrict) {
+      await loadDistrictData(selectedDistrict);
     }
   });
 
-  // Re-render chart when filtered data changes
-  $: if (chartComponent && filteredData.length > 0) {
+  // Re-render chart when data changes
+  $: if (chartComponent && data.length > 0) {
     setTimeout(() => chartComponent.renderVisualization(), 50);
   }
 </script>
@@ -296,13 +282,11 @@
         <button
           class="tab-button"
           class:active={selectedDataset === key}
-          on:click={() => {
+          on:click={async () => {
             selectedDataset = key;
-            if (allDatasets[key]) {
-              data = allDatasets[key];
-              updateFilteredData();
-            } else {
-              loadData();
+            // Reload data for current district with new baseline
+            if (selectedDistrict) {
+              await loadDistrictData(selectedDistrict);
             }
           }}
         >
@@ -314,35 +298,47 @@
 
   <!-- Main Content -->
   <main class="main-content">
-    {#if isLoading}
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading household data...</p>
-      </div>
-    {:else if loadError}
+    {#if loadError && !selectedDistrict}
       <div class="error-state">
-        <p>Error loading data: {loadError}</p>
-        <button on:click={loadData}>Retry</button>
+        <p>Error: {loadError}</p>
       </div>
     {:else}
       <ExplorerLayout
-        {data}
+        dataset={selectedDataset}
         bind:selectedDistrict
         on:districtChange={handleDistrictChange}
       >
-        <div slot="scatter" let:filteredData class="scatter-wrapper">
-          <ScatterPlot
-            bind:this={chartComponent}
-            data={filteredData}
-            scrollStates={explorerScrollStates}
-            currentStateIndex={0}
-            previousStateIndex={0}
-            isTransitioning={false}
-            interpolationT={1}
-            randomHouseholds={{}}
-            {selectedHousehold}
-            onPointClick={handlePointClick}
-          />
+        <div slot="scatter" class="scatter-wrapper">
+          {#if isLoading}
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Loading district data...</p>
+            </div>
+          {:else if selectedDistrict && data.length > 0}
+            <ScatterPlot
+              bind:this={chartComponent}
+              {data}
+              scrollStates={explorerScrollStates}
+              currentStateIndex={0}
+              previousStateIndex={0}
+              isTransitioning={false}
+              interpolationT={1}
+              randomHouseholds={{}}
+              {selectedHousehold}
+              onPointClick={handlePointClick}
+            />
+          {:else}
+            <div class="select-district-prompt">
+              <div class="prompt-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
+                  <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                </svg>
+              </div>
+              <h2>Select a Congressional District</h2>
+              <p>Click on a district in the map to explore household-level impacts</p>
+            </div>
+          {/if}
         </div>
       </ExplorerLayout>
     {/if}
@@ -483,6 +479,36 @@
   .scatter-wrapper {
     width: 100%;
     height: 100%;
+  }
+
+  .select-district-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    color: #64748b;
+    text-align: center;
+    padding: 40px;
+  }
+
+  .select-district-prompt .prompt-icon {
+    color: #cbd5e1;
+  }
+
+  .select-district-prompt h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0;
+  }
+
+  .select-district-prompt p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    max-width: 300px;
   }
 
   .loading-state,
