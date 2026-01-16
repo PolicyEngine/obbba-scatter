@@ -183,14 +183,24 @@
 
   // Provision panel state
   let provisionExpanded = false;
+  let showRelativeImpact = false; // false = absolute ($), true = relative (%)
 
   // Get provisions for selected district, separated by positive/negative
   $: allProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
     ? provisionImpacts[selectedDistrict]
     : [];
 
-  $: positiveProvisions = allProvisions.filter(p => p.avgImpact > 0);
-  $: negativeProvisions = allProvisions.filter(p => p.avgImpact < 0);
+  // Calculate total absolute impact for relative percentages
+  $: totalAbsoluteImpact = allProvisions.reduce((sum, p) => sum + Math.abs(p.avgImpact), 0);
+
+  // Add relative percentage to each provision
+  $: provisionsWithRelative = allProvisions.map(p => ({
+    ...p,
+    relativeImpact: totalAbsoluteImpact > 0 ? (Math.abs(p.avgImpact) / totalAbsoluteImpact * 100) : 0
+  }));
+
+  $: positiveProvisions = provisionsWithRelative.filter(p => p.avgImpact > 0);
+  $: negativeProvisions = provisionsWithRelative.filter(p => p.avgImpact < 0);
 
   // Show top 3 of each when collapsed, all when expanded
   $: displayPositive = provisionExpanded ? positiveProvisions : positiveProvisions.slice(0, 3);
@@ -473,7 +483,21 @@
             <!-- Provision impacts panel -->
             {#if allProvisions.length > 0}
               <div class="provision-panel">
-                <h3>Provision Impacts</h3>
+                <div class="provision-header">
+                  <h3>Provision Impacts</h3>
+                  <div class="impact-toggle">
+                    <button
+                      class="toggle-btn"
+                      class:active={!showRelativeImpact}
+                      on:click={() => showRelativeImpact = false}
+                    >$</button>
+                    <button
+                      class="toggle-btn"
+                      class:active={showRelativeImpact}
+                      on:click={() => showRelativeImpact = true}
+                    >%</button>
+                  </div>
+                </div>
 
                 <!-- Positive impacts (gains) -->
                 {#if displayPositive.length > 0}
@@ -487,7 +511,11 @@
                         <div class="provision-item">
                           <span class="provision-name">{provision.shortName}</span>
                           <span class="provision-value positive">
-                            +${provision.avgImpact.toLocaleString()}
+                            {#if showRelativeImpact}
+                              {provision.relativeImpact.toFixed(1)}%
+                            {:else}
+                              +${provision.avgImpact.toLocaleString()}
+                            {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
                             <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
@@ -510,7 +538,11 @@
                         <div class="provision-item">
                           <span class="provision-name">{provision.shortName}</span>
                           <span class="provision-value negative">
-                            −${Math.abs(provision.avgImpact).toLocaleString()}
+                            {#if showRelativeImpact}
+                              {provision.relativeImpact.toFixed(1)}%
+                            {:else}
+                              −${Math.abs(provision.avgImpact).toLocaleString()}
+                            {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
                             <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
@@ -539,7 +571,9 @@
                   </button>
                 {/if}
 
-                <p class="provision-note">Avg. impact per household</p>
+                <p class="provision-note">
+                  {showRelativeImpact ? '% of total impact magnitude' : 'Avg. impact per household'}
+                </p>
               </div>
             {/if}
           {:else}
@@ -789,6 +823,13 @@
     overflow-y: auto;
   }
 
+  .provision-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
   .provision-panel h3 {
     font-family: 'Inter', sans-serif;
     font-size: 12px;
@@ -796,7 +837,38 @@
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 0 0 12px 0;
+    margin: 0;
+  }
+
+  .impact-toggle {
+    display: flex;
+    gap: 2px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    padding: 2px;
+  }
+
+  .toggle-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .toggle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .toggle-btn.active {
+    background: white;
+    color: #319795;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   .provision-section {
