@@ -948,10 +948,10 @@
 
   .provision-tooltip {
     position: absolute;
-    right: 0;
-    left: auto;
-    top: 100%;
-    margin-top: 6px;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%) translateX(4px);
+    margin-right: 8px;
     padding: 10px 12px;
     background: rgba(24, 35, 51, 0.95);
     color: white;
@@ -960,33 +960,32 @@
     line-height: 1.5;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    max-width: 260px;
+    max-width: 280px;
     width: max-content;
     z-index: 100;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-4px);
     transition: all 0.2s ease;
     pointer-events: none;
   }
 
-  .provision-tooltip::before {
+  .provision-tooltip::after {
     content: '';
     position: absolute;
-    top: -5px;
-    right: 16px;
-    left: auto;
+    top: 50%;
+    right: -5px;
+    transform: translateY(-50%);
     width: 0;
     height: 0;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-bottom: 5px solid rgba(24, 35, 51, 0.95);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 5px solid rgba(24, 35, 51, 0.95);
   }
 
   .provision-item:hover .provision-tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateY(-50%) translateX(0);
   }
 
   .provision-value {
@@ -1240,18 +1239,7 @@
     .provision-tooltip {
       font-size: 11px;
       padding: 8px 10px;
-      max-width: 220px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-4px);
-    }
-
-    .provision-tooltip::before {
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .provision-item:hover .provision-tooltip {
-      transform: translateX(-50%) translateY(0);
+      max-width: 200px;
     }
 
     .slider-group {
