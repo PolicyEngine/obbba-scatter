@@ -131,6 +131,31 @@
     'obbba-vs-current-law': 'provision_impacts_current_law.json'
   };
 
+  // Provision descriptions for tooltips
+  const provisionDescriptions = {
+    'Tax Rate Reform': 'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.',
+    'Standard Deduction Reform': 'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.',
+    'Exemption Reform': 'Continues TCJA\'s repeal of personal exemptions, which were $4,050 per person before 2018.',
+    'CTC SSN Requirement': 'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.',
+    'CTC Expansion': 'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.',
+    'CDCC Reform': 'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.',
+    'QBI Deduction Reform': 'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.',
+    'AMT Reform': 'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.',
+    'Miscellaneous Reform': 'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.',
+    'Casualty Loss Repeal': 'Continues limitation of casualty loss deductions to federally declared disaster areas only.',
+    'Other Itemized Deductions Reform': 'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).',
+    'Limitation on Itemized Deductions Reform': 'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.',
+    'Estate Tax Reform': 'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.',
+    'SALT Cap Reform': 'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.',
+    'Tip Income Exemption': 'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.',
+    'Overtime Exemption': 'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.',
+    'Senior Deduction': 'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.',
+    'Auto Loan Interest': 'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.',
+    'SNAP Takeup Reform': 'Changes in SNAP (food stamp) eligibility based on projected participation rate changes.',
+    'ACA Takeup Reform': 'Changes in ACA premium tax credit eligibility based on CBO projections for subsidy participation rates.',
+    'Medicaid Takeup Reform': 'Changes in Medicaid eligibility based on projected participation rate changes.'
+  };
+
   // Cache for loaded district data
   let districtDataCache = {};
 
@@ -464,6 +489,9 @@
                           <span class="provision-value positive">
                             +${provision.avgImpact.toLocaleString()}
                           </span>
+                          {#if provisionDescriptions[provision.name]}
+                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                          {/if}
                         </div>
                       {/each}
                     </div>
@@ -484,6 +512,9 @@
                           <span class="provision-value negative">
                             −${Math.abs(provision.avgImpact).toLocaleString()}
                           </span>
+                          {#if provisionDescriptions[provision.name]}
+                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                          {/if}
                         </div>
                       {/each}
                     </div>
@@ -824,12 +855,64 @@
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    position: relative;
   }
 
   .provision-name {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
     color: #334155;
+    cursor: help;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: #94a3b8;
+  }
+
+  .provision-name:hover {
+    text-decoration-color: #334155;
+  }
+
+  .provision-tooltip {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    background: rgba(24, 35, 51, 0.95);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    max-width: 280px;
+    width: max-content;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+  }
+
+  .provision-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 16px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid rgba(24, 35, 51, 0.95);
+  }
+
+  .provision-item:hover .provision-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
   }
 
   .provision-value {
@@ -1078,6 +1161,23 @@
     .expand-btn {
       font-size: 11px;
       padding: 5px 6px;
+    }
+
+    .provision-tooltip {
+      font-size: 11px;
+      padding: 8px 10px;
+      max-width: 220px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    .provision-tooltip::before {
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .provision-item:hover .provision-tooltip {
+      transform: translateX(-50%) translateY(0);
     }
 
     .slider-group {
