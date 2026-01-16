@@ -17,6 +17,10 @@
   let selectedDistrict = null;
   let selectedHousehold = null;
 
+  // Provision impacts data
+  let provisionImpacts = {};
+  let provisionImpactsLoaded = false;
+
   // Chart reference
   let chartComponent = null;
 
@@ -121,8 +125,80 @@
     'obbba-vs-current-law': 'districts/tcja-extension'
   };
 
+  // Provision impacts file mapping
+  const provisionFiles = {
+    'obbba-vs-current-policy': 'provision_impacts.json',
+    'obbba-vs-current-law': 'provision_impacts_current_law.json'
+  };
+
+  // Provision descriptions for tooltips
+  const provisionDescriptions = {
+    'Tax Rate Reform': 'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.',
+    'Standard Deduction Reform': 'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.',
+    'Exemption Reform': 'Continues TCJA\'s repeal of personal exemptions, which were $4,050 per person before 2018.',
+    'CTC SSN Requirement': 'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.',
+    'CTC Expansion': 'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.',
+    'CDCC Reform': 'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.',
+    'QBI Deduction Reform': 'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.',
+    'AMT Reform': 'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.',
+    'Miscellaneous Reform': 'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.',
+    'Casualty Loss Repeal': 'Continues limitation of casualty loss deductions to federally declared disaster areas only.',
+    'Other Itemized Deductions Reform': 'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).',
+    'Limitation on Itemized Deductions Reform': 'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.',
+    'Estate Tax Reform': 'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.',
+    'SALT Cap Reform': 'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.',
+    'Tip Income Exemption': 'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.',
+    'Overtime Exemption': 'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.',
+    'Senior Deduction': 'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.',
+    'Auto Loan Interest': 'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.',
+    'SNAP Takeup Reform': 'Changes in SNAP (food stamp) eligibility based on projected participation rate changes.',
+    'ACA Takeup Reform': 'Changes in ACA premium tax credit eligibility based on CBO projections for subsidy participation rates.',
+    'Medicaid Takeup Reform': 'Changes in Medicaid eligibility based on projected participation rate changes.'
+  };
+
   // Cache for loaded district data
   let districtDataCache = {};
+
+  // Load provision impacts data
+  async function loadProvisionImpacts() {
+    const filename = provisionFiles[selectedDataset];
+    if (!filename) return;
+
+    try {
+      const basePath = import.meta.env.BASE_URL || '/';
+      const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
+      const url = `${normalizedBase}${filename}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load provision impacts');
+
+      provisionImpacts = await response.json();
+      provisionImpactsLoaded = true;
+      console.log('Loaded provision impacts for', Object.keys(provisionImpacts).length, 'districts');
+    } catch (error) {
+      console.error('Error loading provision impacts:', error);
+      provisionImpacts = {};
+    }
+  }
+
+  // Provision panel state
+  let provisionExpanded = false;
+  let showRelativeImpact = false; // false = absolute ($), true = relative (%)
+
+  // Get provisions for selected district, separated by positive/negative
+  $: allProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
+    ? provisionImpacts[selectedDistrict]
+    : [];
+
+  $: positiveProvisions = allProvisions.filter(p => p.avgImpact > 0);
+  $: negativeProvisions = allProvisions.filter(p => p.avgImpact < 0);
+
+  // Show top 3 of each when collapsed, all when expanded
+  $: displayPositive = provisionExpanded ? positiveProvisions : positiveProvisions.slice(0, 3);
+  $: displayNegative = provisionExpanded ? negativeProvisions : negativeProvisions.slice(0, 3);
+
+  // Check if there are more to show
+  $: hasMoreProvisions = positiveProvisions.length > 3 || negativeProvisions.length > 3;
 
   // Load data for a specific district (on-demand)
   async function loadDistrictData(district) {
@@ -208,8 +284,9 @@
   async function handleDistrictChange(event) {
     const newDistrict = event.detail.district;
 
-    // Clear selected household when changing districts
+    // Clear selected household and reset provision panel when changing districts
     selectedHousehold = null;
+    provisionExpanded = false;
 
     // Update URL
     const url = new URL(window.location.href);
@@ -277,10 +354,16 @@
   // Load data on mount (only if district is in URL)
   onMount(async () => {
     parseUrlParams();
+    await loadProvisionImpacts();
     if (selectedDistrict) {
       await loadDistrictData(selectedDistrict);
     }
   });
+
+  // Reload provision impacts when dataset changes
+  $: if (browser && selectedDataset) {
+    loadProvisionImpacts();
+  }
 
   // Re-render chart when data changes
   $: if (chartComponent && data.length > 0) {
@@ -388,6 +471,102 @@
               {selectedHousehold}
               onPointClick={handlePointClick}
             />
+            <!-- Provision impacts panel -->
+            {#if allProvisions.length > 0}
+              <div class="provision-panel">
+                <div class="provision-header">
+                  <h3>Provision Impacts</h3>
+                  <div class="impact-toggle">
+                    <button
+                      class="toggle-btn"
+                      class:active={!showRelativeImpact}
+                      on:click={() => showRelativeImpact = false}
+                    >$</button>
+                    <button
+                      class="toggle-btn"
+                      class:active={showRelativeImpact}
+                      on:click={() => showRelativeImpact = true}
+                    >%</button>
+                  </div>
+                </div>
+
+                <!-- Positive impacts (gains) -->
+                {#if displayPositive.length > 0}
+                  <div class="provision-section">
+                    <div class="section-header positive">
+                      <span class="section-icon">▲</span>
+                      <span class="section-title">Gains</span>
+                    </div>
+                    <div class="provision-list">
+                      {#each displayPositive as provision}
+                        <div class="provision-item">
+                          <span class="provision-name">{provision.shortName}</span>
+                          <span class="provision-value positive">
+                            {#if showRelativeImpact}
+                              +{provision.avgRelativeImpact.toFixed(2)}%
+                            {:else}
+                              +${Math.round(provision.avgImpact).toLocaleString()}
+                            {/if}
+                          </span>
+                          {#if provisionDescriptions[provision.name]}
+                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Negative impacts (losses) -->
+                {#if displayNegative.length > 0}
+                  <div class="provision-section">
+                    <div class="section-header negative">
+                      <span class="section-icon">▼</span>
+                      <span class="section-title">Losses</span>
+                    </div>
+                    <div class="provision-list">
+                      {#each displayNegative as provision}
+                        <div class="provision-item">
+                          <span class="provision-name">{provision.shortName}</span>
+                          <span class="provision-value negative">
+                            {#if showRelativeImpact}
+                              {provision.avgRelativeImpact.toFixed(2)}%
+                            {:else}
+                              −${Math.round(Math.abs(provision.avgImpact)).toLocaleString()}
+                            {/if}
+                          </span>
+                          {#if provisionDescriptions[provision.name]}
+                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Expand/collapse button -->
+                {#if hasMoreProvisions}
+                  <button
+                    class="expand-btn"
+                    on:click={() => provisionExpanded = !provisionExpanded}
+                  >
+                    {provisionExpanded ? 'Show less' : `Show all (${allProvisions.length})`}
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      class:rotated={provisionExpanded}
+                    >
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                {/if}
+
+                <p class="provision-note">
+                  {showRelativeImpact ? 'Avg. % change in net income' : 'Avg. $ impact per household'}
+                </p>
+              </div>
+            {/if}
           {:else}
             <div class="select-district-prompt">
               <div class="prompt-icon">
@@ -616,6 +795,240 @@
   .scatter-wrapper {
     width: 100%;
     height: 100%;
+    position: relative;
+  }
+
+  /* Provision impacts panel */
+  .provision-panel {
+    position: absolute;
+    top: 60px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    min-width: 200px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+  }
+
+  .provision-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .provision-panel h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+  }
+
+  .impact-toggle {
+    display: flex;
+    gap: 2px;
+    background: #e2e8f0;
+    border-radius: 4px;
+    padding: 2px;
+  }
+
+  .toggle-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 3px;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .toggle-btn:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .toggle-btn.active {
+    background: white;
+    color: #319795;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .provision-section {
+    margin-bottom: 12px;
+  }
+
+  .provision-section:last-of-type {
+    margin-bottom: 8px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .section-icon {
+    font-size: 10px;
+  }
+
+  .section-header.positive .section-icon {
+    color: #319795;
+  }
+
+  .section-header.negative .section-icon {
+    color: #6B7280;
+  }
+
+  .section-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .section-header.positive .section-title {
+    color: #319795;
+  }
+
+  .section-header.negative .section-title {
+    color: #6B7280;
+  }
+
+  .provision-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .provision-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+  }
+
+  .provision-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #334155;
+    cursor: help;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    text-decoration-color: #94a3b8;
+  }
+
+  .provision-name:hover {
+    text-decoration-color: #334155;
+  }
+
+  .provision-tooltip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
+    background: rgba(24, 35, 51, 0.98);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: all 0.15s ease;
+    pointer-events: none;
+  }
+
+  .provision-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 12px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid rgba(24, 35, 51, 0.98);
+  }
+
+  .provision-item:hover .provision-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .provision-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .provision-value.positive {
+    color: #319795;
+  }
+
+  .provision-value.negative {
+    color: #6B7280;
+  }
+
+  .expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 8px;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .expand-btn:hover {
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  .expand-btn svg {
+    transition: transform 0.2s ease;
+  }
+
+  .expand-btn svg.rotated {
+    transform: rotate(180deg);
+  }
+
+  .provision-note {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: #94a3b8;
+    margin: 8px 0 0 0;
+    text-align: center;
   }
 
   .select-district-prompt {
@@ -773,6 +1186,49 @@
 
     .control-label {
       font-size: 12px;
+    }
+
+    .provision-panel {
+      top: auto;
+      bottom: 80px;
+      right: 8px;
+      left: 8px;
+      min-width: auto;
+      max-height: 50vh;
+      padding: 10px 12px;
+    }
+
+    .provision-panel h3 {
+      font-size: 11px;
+    }
+
+    .section-header {
+      margin-bottom: 4px;
+      padding-bottom: 3px;
+    }
+
+    .section-icon {
+      font-size: 9px;
+    }
+
+    .section-title {
+      font-size: 10px;
+    }
+
+    .provision-name,
+    .provision-value {
+      font-size: 12px;
+    }
+
+    .expand-btn {
+      font-size: 11px;
+      padding: 5px 6px;
+    }
+
+    .provision-tooltip {
+      font-size: 12px;
+      padding: 10px 14px;
+      max-width: 280px;
     }
 
     .slider-group {
