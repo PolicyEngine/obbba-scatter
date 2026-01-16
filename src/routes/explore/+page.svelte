@@ -20,14 +20,49 @@
   // Chart reference
   let chartComponent = null;
 
-  // Simple scroll states for the explorer view (no storytelling, just one view)
-  const explorerScrollStates = [
+  // Y-axis scale control (logarithmic slider)
+  let yAxisMax = 500000; // Default 500k
+  const yAxisMin = 50000;   // $50K minimum
+  const yAxisMaxLimit = 10000000; // $10M maximum
+
+  // Format value for display
+  function formatYAxisValue(value) {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`.replace('.0M', 'M');
+    }
+    return `$${Math.round(value / 1000)}K`;
+  }
+
+  // Convert slider position (0-100) to actual value (logarithmic)
+  function sliderToValue(sliderPos) {
+    const minLog = Math.log(yAxisMin);
+    const maxLog = Math.log(yAxisMaxLimit);
+    const scale = (maxLog - minLog) / 100;
+    return Math.round(Math.exp(minLog + scale * sliderPos));
+  }
+
+  // Convert actual value to slider position (0-100)
+  function valueToSlider(value) {
+    const minLog = Math.log(yAxisMin);
+    const maxLog = Math.log(yAxisMaxLimit);
+    return (Math.log(value) - minLog) / (maxLog - minLog) * 100;
+  }
+
+  // Reactive slider position
+  $: sliderPosition = valueToSlider(yAxisMax);
+
+  function handleSliderChange(event) {
+    yAxisMax = sliderToValue(parseFloat(event.target.value));
+  }
+
+  // Simple scroll states for the explorer view (reactive to yAxisMax)
+  $: explorerScrollStates = [
     {
       id: 'all',
       title: 'All Households',
       filter: () => true,
       xDomain: [-20, 20],
-      yDomain: [0, 500000],
+      yDomain: [0, yAxisMax],
       viewType: 'all'
     }
   ];
@@ -251,6 +286,11 @@
   $: if (chartComponent && data.length > 0) {
     setTimeout(() => chartComponent.renderVisualization(), 50);
   }
+
+  // Re-render chart when y-axis scale changes
+  $: if (chartComponent && data.length > 0 && yAxisMax) {
+    setTimeout(() => chartComponent.forceRender(), 50);
+  }
 </script>
 
 <svelte:head>
@@ -274,25 +314,46 @@
     </div>
   </header>
 
-  <!-- Baseline selector overlay (bottom right, matching nationwide style) -->
-  <div class="baseline-selector-overlay">
-    <span class="baseline-label">Baseline:</span>
-    <div class="baseline-selector">
-      {#each Object.entries(districtDatasets) as [key, config]}
-        <button
-          class="tab-button"
-          class:active={selectedDataset === key}
-          on:click={async () => {
-            selectedDataset = key;
-            // Reload data for current district with new baseline
-            if (selectedDistrict) {
-              await loadDistrictData(selectedDistrict);
-            }
-          }}
-        >
-          {config.label}
-        </button>
-      {/each}
+  <!-- Y-axis slider (bottom left) -->
+  <div class="controls-overlay left">
+    <div class="control-group slider-group">
+      <span class="control-label">Y-Axis Max:</span>
+      <div class="slider-container">
+        <input
+          type="range"
+          class="scale-slider"
+          min="0"
+          max="100"
+          step="1"
+          value={sliderPosition}
+          on:input={handleSliderChange}
+        />
+        <span class="slider-value">{formatYAxisValue(yAxisMax)}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Baseline selector (bottom right) -->
+  <div class="controls-overlay right">
+    <div class="control-group">
+      <span class="control-label">Baseline:</span>
+      <div class="baseline-selector">
+        {#each Object.entries(districtDatasets) as [key, config]}
+          <button
+            class="tab-button"
+            class:active={selectedDataset === key}
+            on:click={async () => {
+              selectedDataset = key;
+              // Reload data for current district with new baseline
+              if (selectedDistrict) {
+                await loadDistrictData(selectedDistrict);
+              }
+            }}
+          >
+            {config.label}
+          </button>
+        {/each}
+      </div>
     </div>
   </div>
 
@@ -416,22 +477,98 @@
     margin: 0;
   }
 
-  /* Baseline selector overlay (bottom right, matching nationwide style) */
-  .baseline-selector-overlay {
+  /* Controls overlay */
+  .controls-overlay {
     position: fixed;
     bottom: 2rem;
-    right: 2rem;
     z-index: 20;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 24px;
   }
 
-  .baseline-label {
+  .controls-overlay.left {
+    left: 2rem;
+  }
+
+  .controls-overlay.right {
+    right: 2rem;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .control-label {
     font-size: 14px;
     font-weight: 600;
     color: #1e293b;
     font-family: 'Inter', sans-serif;
+  }
+
+  .slider-group {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(226, 232, 240, 0.5);
+  }
+
+  .slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .scale-slider {
+    width: 120px;
+    height: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #e2e8f0;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
+  .scale-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #319795;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s ease;
+  }
+
+  .scale-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  .scale-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #319795;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .scale-slider:focus {
+    outline: none;
+  }
+
+  .slider-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #319795;
+    min-width: 55px;
+    text-align: right;
   }
 
   .baseline-selector {
@@ -605,16 +742,50 @@
       font-size: 16px;
     }
 
-    .baseline-selector-overlay {
+    .controls-overlay {
       bottom: 1rem;
-      right: 1rem;
       flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
+      gap: 12px;
     }
 
-    .baseline-label {
+    .controls-overlay.left {
+      left: 1rem;
+      align-items: flex-start;
+    }
+
+    .controls-overlay.right {
+      right: 1rem;
+      align-items: flex-end;
+    }
+
+    .control-group {
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .controls-overlay.left .control-group {
+      align-items: flex-start;
+    }
+
+    .controls-overlay.right .control-group {
+      align-items: flex-end;
+    }
+
+    .control-label {
       font-size: 12px;
+    }
+
+    .slider-group {
+      padding: 6px 10px;
+    }
+
+    .scale-slider {
+      width: 80px;
+    }
+
+    .slider-value {
+      font-size: 12px;
+      min-width: 45px;
     }
 
     .baseline-selector {
