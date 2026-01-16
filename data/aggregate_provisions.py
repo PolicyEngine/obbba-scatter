@@ -69,6 +69,7 @@ def aggregate_provisions(input_csv: str, output_json: str):
     For each district and provision, computes:
     - totalImpact: sum of (change * weight) - total $ impact
     - avgImpact: totalImpact / sum(weights) - avg $ per household
+    - avgRelativeImpact: weighted avg of (change / baseline_income * 100) - avg % change
     """
     print(f"Loading {input_csv}...")
     df = pd.read_csv(input_csv)
@@ -77,6 +78,7 @@ def aggregate_provisions(input_csv: str, output_json: str):
     # Key columns
     district_col = "Congressional District"
     weight_col = "Household Weight"
+    baseline_income_col = "Baseline Net Income"
 
     # Map district IDs to GeoJSON format
     df["GeoJSON_District"] = df[district_col].map(
@@ -102,6 +104,7 @@ def aggregate_provisions(input_csv: str, output_json: str):
     for district, group in df.groupby("GeoJSON_District"):
         district = int(district)
         weights = group[weight_col].values
+        baseline_incomes = group[baseline_income_col].values
         total_weight = weights.sum()
 
         if total_weight == 0:
@@ -118,11 +121,22 @@ def aggregate_provisions(input_csv: str, output_json: str):
             # Average impact per household
             avg_impact = total_impact / total_weight
 
+            # Average relative impact (% of baseline income)
+            # Only include households with positive baseline income to avoid division issues
+            valid_mask = baseline_incomes > 0
+            if valid_mask.sum() > 0:
+                relative_changes = changes[valid_mask] / baseline_incomes[valid_mask] * 100
+                valid_weights = weights[valid_mask]
+                avg_relative_impact = (relative_changes * valid_weights).sum() / valid_weights.sum()
+            else:
+                avg_relative_impact = 0
+
             provision_impacts.append({
                 "name": provision,
                 "shortName": PROVISION_SHORT_NAMES.get(provision, provision),
                 "totalImpact": round(total_impact),
                 "avgImpact": round(avg_impact, 2),
+                "avgRelativeImpact": round(avg_relative_impact, 3),
             })
 
         # Sort by absolute average impact (largest first)

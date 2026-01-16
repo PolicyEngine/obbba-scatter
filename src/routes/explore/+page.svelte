@@ -190,17 +190,8 @@
     ? provisionImpacts[selectedDistrict]
     : [];
 
-  // Calculate total absolute impact for relative percentages
-  $: totalAbsoluteImpact = allProvisions.reduce((sum, p) => sum + Math.abs(p.avgImpact), 0);
-
-  // Add relative percentage to each provision
-  $: provisionsWithRelative = allProvisions.map(p => ({
-    ...p,
-    relativeImpact: totalAbsoluteImpact > 0 ? (Math.abs(p.avgImpact) / totalAbsoluteImpact * 100) : 0
-  }));
-
-  $: positiveProvisions = provisionsWithRelative.filter(p => p.avgImpact > 0);
-  $: negativeProvisions = provisionsWithRelative.filter(p => p.avgImpact < 0);
+  $: positiveProvisions = allProvisions.filter(p => p.avgImpact > 0);
+  $: negativeProvisions = allProvisions.filter(p => p.avgImpact < 0);
 
   // Show top 3 of each when collapsed, all when expanded
   $: displayPositive = provisionExpanded ? positiveProvisions : positiveProvisions.slice(0, 3);
@@ -512,7 +503,7 @@
                           <span class="provision-name">{provision.shortName}</span>
                           <span class="provision-value positive">
                             {#if showRelativeImpact}
-                              {provision.relativeImpact.toFixed(1)}%
+                              +{provision.avgRelativeImpact.toFixed(2)}%
                             {:else}
                               +${provision.avgImpact.toLocaleString()}
                             {/if}
@@ -539,7 +530,7 @@
                           <span class="provision-name">{provision.shortName}</span>
                           <span class="provision-value negative">
                             {#if showRelativeImpact}
-                              {provision.relativeImpact.toFixed(1)}%
+                              {provision.avgRelativeImpact.toFixed(2)}%
                             {:else}
                               −${Math.abs(provision.avgImpact).toLocaleString()}
                             {/if}
@@ -572,7 +563,7 @@
                 {/if}
 
                 <p class="provision-note">
-                  {showRelativeImpact ? '% of total impact magnitude' : 'Avg. impact per household'}
+                  {showRelativeImpact ? 'Avg. % change in net income' : 'Avg. $ impact per household'}
                 </p>
               </div>
             {/if}
