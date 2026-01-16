@@ -71,7 +71,7 @@
       netChange: household['Total change in net income'] || household['Change in Household Net Income'],
       percentChange: household['Percentage change in net income'],
       baselineNetIncome: household['Baseline Net Income'],
-      marketIncome: household['Market Income'] || household['Gross Income'],
+      marketIncome: household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'],
       allKeys: Object.keys(household).filter(k => k.includes('Income') || k.includes('Net'))
     });
     
@@ -97,7 +97,7 @@
     
     // Animate to actual values
     householdId.set(parseInt(household.id) || 0);
-    marketIncome.set(household['Market Income'] || household['Gross Income'] || 0);
+    marketIncome.set(household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0);
     baselineNetIncome.set(household['Baseline Net Income'] || 0);
     obbbaNetIncome.set((household['Baseline Net Income'] || 0) + (household['Total change in net income'] || household['Change in Household Net Income'] || 0));
     absoluteImpact.set(household['Total change in net income'] || household['Change in Household Net Income'] || 0);
@@ -184,138 +184,138 @@
   // Get provision breakdown for a household
   function getProvisionBreakdown(household) {
     if (!household) return [];
-    
+
+    // Provisions with both national and district column name variants
     const provisions = [
-      { 
-        name: 'Rate adjustment', 
-        key: 'Change in net income after Tax Rate Reform',
+      {
+        name: 'Rate adjustment',
+        keys: ['Change in net income after Tax Rate Reform'],
         description: 'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.'
       },
-      { 
-        name: 'Standard deduction increase', 
-        key: 'Change in net income after Standard Deduction Reform',
+      {
+        name: 'Standard deduction increase',
+        keys: ['Change in net income after Standard Deduction Reform'],
         description: 'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.'
       },
-      { 
-        name: 'Exemption repeal', 
-        key: 'Change in net income after Exemption Reform',
+      {
+        name: 'Exemption repeal',
+        keys: ['Change in net income after Exemption Reform'],
         description: 'Continues TCJA\'s repeal of personal exemptions, which were $4,050 per person before 2018.'
       },
-      { 
-        name: 'Child tax credit social security number requirement', 
-        key: 'Change in net income after Child tax credit social security number requirement',
+      {
+        name: 'Child tax credit SSN requirement',
+        keys: ['Change in net income after Child tax credit social security number requirement', 'Change in net income after CTC SSN Requirement'],
         description: 'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.'
       },
-      { 
-        name: 'Child tax credit expansion', 
-        key: 'Change in net income after Child tax credit expansion',
+      {
+        name: 'Child tax credit expansion',
+        keys: ['Change in net income after Child tax credit expansion', 'Change in net income after CTC Expansion'],
         description: 'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.'
       },
-      { 
-        name: 'Qualified Business Income Deduction Reform', 
-        key: 'Change in net income after Qualified business interest deduction reform',
+      {
+        name: 'Qualified Business Income Deduction',
+        keys: ['Change in net income after Qualified business interest deduction reform', 'Change in net income after QBI Deduction Reform'],
         description: 'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.'
       },
-      { 
-        name: 'Alternative minimum tax reform', 
-        key: 'Change in net income after Alternative minimum tax reform',
+      {
+        name: 'Alternative minimum tax reform',
+        keys: ['Change in net income after Alternative minimum tax reform', 'Change in net income after AMT Reform'],
         description: 'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.'
       },
-      { 
-        name: 'Miscellaneous deduction reform', 
-        key: 'Change in net income after Miscellaneous deduction reform',
+      {
+        name: 'Miscellaneous deduction reform',
+        keys: ['Change in net income after Miscellaneous deduction reform', 'Change in net income after Miscellaneous Reform'],
         description: 'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.'
       },
-      { 
-        name: 'Charitable deductions reform', 
-        key: 'Change in net income after Charitable deductions reform',
-        description: 'Introduces 0.5% of AGI floor on charitable contributions, reducing deductible amounts. 37% bracket taxpayers limited to 35% benefit.'
+      {
+        name: 'Charitable/other itemized deductions',
+        keys: ['Change in net income after Charitable deductions reform', 'Change in net income after Other Itemized Deductions Reform'],
+        description: 'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).'
       },
-      { 
-        name: 'Casualty loss deduction repeal', 
-        key: 'Change in net income after Casualty loss deduction repeal',
+      {
+        name: 'Casualty loss deduction repeal',
+        keys: ['Change in net income after Casualty loss deduction repeal'],
         description: 'Continues limitation of casualty loss deductions to federally declared disaster areas only.'
       },
-      { 
-        name: 'Pease repeal', 
-        key: 'Change in net income after Pease repeal',
+      {
+        name: 'Pease repeal',
+        keys: ['Change in net income after Pease repeal'],
         description: 'Maintains repeal of Pease limitation that previously reduced itemized deductions for high-income taxpayers by 3% of excess AGI.'
       },
-      { 
-        name: 'Limitation on itemized deductions reform', 
-        key: 'Change in net income after Limitation on itemized deductions reform',
+      {
+        name: 'Limitation on itemized deductions',
+        keys: ['Change in net income after Limitation on itemized deductions reform', 'Change in net income after Limitation on Itemized Deductions Reform'],
         description: 'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.'
       },
-      { 
-        name: 'Estate tax reform', 
-        key: 'Change in net income after Estate tax reform',
+      {
+        name: 'Estate tax reform',
+        keys: ['Change in net income after Estate tax reform', 'Change in net income after Estate Tax Reform'],
         description: 'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.'
       },
-      { 
-        name: 'New senior deduction', 
-        key: 'Change in net income after New senior deduction',
+      {
+        name: 'Senior deduction',
+        keys: ['Change in net income after New senior deduction', 'Change in net income after Senior Deduction'],
         description: 'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.'
       },
-      { 
-        name: 'Tip exemption', 
-        key: 'Change in net income after Tip exemption',
+      {
+        name: 'Tip exemption',
+        keys: ['Change in net income after Tip exemption', 'Change in net income after Tip Income Exemption'],
         description: 'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.'
       },
-      { 
-        name: 'Overtime exemption', 
-        key: 'Change in net income after Overtime exemption',
+      {
+        name: 'Overtime exemption',
+        keys: ['Change in net income after Overtime exemption', 'Change in net income after Overtime Exemption'],
         description: 'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.'
       },
-      { 
-        name: 'Auto loan interest deduction', 
-        key: 'Change in net income after Auto loan interest deduction',
+      {
+        name: 'Auto loan interest deduction',
+        keys: ['Change in net income after Auto loan interest deduction', 'Change in net income after Auto Loan Interest'],
         description: 'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.'
       },
-      { 
-        name: 'Cap on State and Local Tax Deduction', 
-        key: 'Change in net income after Cap on state and local tax deduction',
+      {
+        name: 'SALT cap reform',
+        keys: ['Change in net income after Cap on state and local tax deduction', 'Change in net income after SALT Cap Reform'],
         description: 'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.'
       },
-      { 
-        name: 'Child and Dependent Care Credit Reform', 
-        key: 'Change in net income after Child and dependent care credit reform',
+      {
+        name: 'Child and Dependent Care Credit',
+        keys: ['Change in net income after Child and dependent care credit reform', 'Change in net income after CDCC Reform'],
         description: 'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.'
       },
-      { 
-        name: 'ACA premium tax credit eligibility', 
-        key: 'Change in net income after Extension of ACA enhanced subsidies',
+      {
+        name: 'ACA premium tax credit',
+        keys: ['Change in net income after Extension of ACA enhanced subsidies', 'Change in net income after ACA Takeup Reform'],
         description: 'Changes in ACA premium tax credit eligibility based on CBO projections for subsidy participation rates.'
       },
-      { 
-        name: 'SNAP eligibility', 
-        key: 'Change in net income after SNAP reform',
+      {
+        name: 'SNAP eligibility',
+        keys: ['Change in net income after SNAP reform', 'Change in net income after SNAP Takeup Reform'],
         description: 'Changes in SNAP (food stamp) eligibility based on projected participation rate changes.'
       },
-      { 
-        name: 'Medicaid eligibility', 
-        key: 'Change in net income after Medicaid reform',
+      {
+        name: 'Medicaid eligibility',
+        keys: ['Change in net income after Medicaid reform', 'Change in net income after Medicaid Takeup Reform'],
         description: 'Changes in Medicaid eligibility based on projected participation rate changes.'
-      },
-      { 
-        name: 'ACA reform', 
-        key: 'Change in net income after ACA reform',
-        description: 'Changes to ACA eligibility and coverage, including potential work requirements and funding modifications.'
       }
     ];
-    
+
     return provisions
       .map((provision, index) => {
-        // Extract the provision suffix from the key
-        const suffix = provision.key.replace('Change in net income after ', '');
-        
+        // Find the first matching key that exists in household data
+        const matchingKey = provision.keys.find(key => household[key] !== undefined && household[key] !== 0);
+        const value = matchingKey ? household[matchingKey] : 0;
+
+        // Extract the provision suffix from the matching key
+        const suffix = matchingKey ? matchingKey.replace('Change in net income after ', '') : '';
+
         return {
           name: provision.name,
-          value: household[provision.key] || 0,
+          value: value,
           index: index,
           description: provision.description,
           // Automatically generate the federal, state, and benefits keys
-          federalChange: household[`Change in federal tax liability after ${suffix}`] || 0,
-          stateChange: household[`Change in state tax liability after ${suffix}`] || 0,
+          federalChange: household[`Change in federal tax after ${suffix}`] || household[`Change in federal tax liability after ${suffix}`] || 0,
+          stateChange: household[`Change in state tax after ${suffix}`] || household[`Change in state tax liability after ${suffix}`] || 0,
           benefitsChange: household[`Change in benefits after ${suffix}`] || 0
         };
       })
@@ -325,8 +325,9 @@
   $: provisionBreakdown = household ? getProvisionBreakdown(household) : [];
   
   // Calculate total federal, state, and benefits changes
-  $: totalFederalChange = household ? (household['Total change in federal tax liability'] || 0) : 0;
-  $: totalStateChange = household ? (household['Total change in state tax liability'] || 0) : 0;
+  // Support both national (with "liability") and district (without) column names
+  $: totalFederalChange = household ? (household['Total change in federal tax liability'] || household['Total change in federal tax'] || 0) : 0;
+  $: totalStateChange = household ? (household['Total change in state tax liability'] || household['Total change in state tax'] || 0) : 0;
   $: totalBenefitsChange = household ? (household['Total change in benefits'] || 0) : 0;
   
   // Get income sources breakdown
@@ -372,7 +373,7 @@
     
     // Calculate total of itemized sources (excluding misc income)
     const itemizedTotal = sources.reduce((sum, s) => sum + (s.value || 0), 0);
-    const marketIncome = household['Market Income'] || 0;
+    const marketIncome = household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0;
     const miscIncome = household['Miscellaneous income'] || 0;
     const difference = marketIncome - itemizedTotal - miscIncome;
     
@@ -953,20 +954,21 @@
     border-left: 4px solid var(--border);
   }
   
-  /* Income sources tooltip - positioned below */
+  /* Income sources tooltip - positioned below, aligned to right edge */
   .income-sources-tooltip {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
     top: 100%;
     bottom: auto;
     transform: none;
     margin-top: 8px;
     margin-right: 0;
   }
-  
+
   /* Income sources tooltip arrow pointing up */
   .income-sources-tooltip::after {
-    left: 20px;
+    right: 20px;
+    left: auto;
     top: -4px;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;

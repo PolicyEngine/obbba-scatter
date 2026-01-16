@@ -426,6 +426,7 @@
     // Interpolate between views
     const yMin = d3.interpolate(fromState.yDomain[0], targetView.yDomain[0])(interpolationT);
     const yMax = d3.interpolate(fromState.yDomain[1], targetView.yDomain[1])(interpolationT);
+
     // Calculate symmetric x domain around 0
     const xMinTarget = targetView.xDomain[0];
     const xMaxTarget = targetView.xDomain[1];
@@ -550,11 +551,11 @@
     
     data.forEach(d => {
       const x = xScale(d['Percentage change in net income']);
-      const y = yScale(d['Market Income'] || d['Gross Income']);
+      const y = yScale(d['Market Income'] || d['Gross Income'] || d['Adjusted Gross Income']);
       
       if (x >= margin.left && x <= width - margin.right && 
           y >= margin.top && y <= height - margin.bottom) {
-        const weight = d['Household weight'] || d['Household weight'] || 1;
+        const weight = d['Household weight'] || d['Household Weight'] || 1;
         minWeight = Math.min(minWeight, weight);
         maxWeight = Math.max(maxWeight, weight);
       }
@@ -581,7 +582,7 @@
     
     dataToRender.forEach(d => {
       let x = xScale(d['Percentage change in net income']);
-      let y = yScale(d['Market Income'] || d['Gross Income']);
+      let y = yScale(d['Market Income'] || d['Gross Income'] || d['Adjusted Gross Income']);
       
       // Check if point is outside bounds and clamp to edge
       const isOutOfBounds = x < margin.left || x > width - margin.right || y < margin.top || y > height - margin.bottom;
@@ -656,13 +657,11 @@
         baseOpacity = Math.min(baseOpacity * existingAnimationState.opacity, 1);
       }
       
-      // Apply staggered reveal animation
-      if (staggeredAnimationState) {
+      // Apply staggered reveal animation only if it would make the point MORE visible
+      // Skip animation effects that would hide points (fixes district filtering)
+      if (staggeredAnimationState && staggeredAnimationState.opacity > 0.1) {
         radius = radius * staggeredAnimationState.scale;
         baseOpacity = baseOpacity * staggeredAnimationState.opacity;
-      } else {
-        // No animation state - this point shouldn't be visible yet
-        baseOpacity = 0;
       }
       
       // Fade other points when showing a random household (but not for intro/all views)

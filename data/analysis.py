@@ -60,6 +60,9 @@ def calculate_stacked_household_impacts(reforms, baseline_reform, year):
         "household_id", map_to="household", period=year
     ).values
     state = baseline.calculate("state_code", map_to="household", period=year).values
+    congressional_district = baseline.calculate(
+        "congressional_district_geoid", map_to="household", period=year
+    ).values
     household_size = baseline.calculate(
         "household_size", map_to="household", period=year
     ).values
@@ -283,6 +286,7 @@ def calculate_stacked_household_impacts(reforms, baseline_reform, year):
     results = {
         "Household ID": household_id,
         "State": state,
+        "Congressional District": congressional_district,
         "Household Size": household_size,
         "Number of Tax Units": num_tax_units,
         "Age of Head": age_head,
