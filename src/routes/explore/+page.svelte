@@ -938,45 +938,31 @@
   }
 
   .provision-tooltip {
-    position: absolute;
-    right: 100%;
+    position: fixed;
+    left: 50%;
     top: 50%;
-    transform: translateY(-50%) translateX(4px);
-    margin-right: 8px;
-    padding: 10px 12px;
-    background: rgba(24, 35, 51, 0.95);
+    transform: translate(-50%, -50%) scale(0.95);
+    padding: 12px 16px;
+    background: rgba(24, 35, 51, 0.98);
     color: white;
     font-family: 'Inter', sans-serif;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.5;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    max-width: 280px;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 320px;
     width: max-content;
-    z-index: 100;
+    z-index: 1000;
     opacity: 0;
     visibility: hidden;
     transition: all 0.2s ease;
     pointer-events: none;
   }
 
-  .provision-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    right: -5px;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-top: 5px solid transparent;
-    border-bottom: 5px solid transparent;
-    border-left: 5px solid rgba(24, 35, 51, 0.95);
-  }
-
   .provision-item:hover .provision-tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translateY(-50%) translateX(0);
+    transform: translate(-50%, -50%) scale(1);
   }
 
   .provision-value {
@@ -1228,9 +1214,9 @@
     }
 
     .provision-tooltip {
-      font-size: 11px;
-      padding: 8px 10px;
-      max-width: 200px;
+      font-size: 12px;
+      padding: 10px 14px;
+      max-width: 280px;
     }
 
     .slider-group {
