@@ -17,7 +17,8 @@ def aggregate_districts(input_csv: str, output_csv: str):
     Aggregate household-level data to district-level summaries.
 
     Computes weighted sums and percentages:
-    - avgChange: (sum of weighted net income changes) / (sum of weighted baseline incomes) * 100
+    - relChange: (sum of weighted net income changes) / (sum of weighted baseline incomes) * 100
+    - absChange: (sum of weighted net income changes) / (sum of weights) - avg $ per household
     - pctWinners: weighted % of households with change > 0.1%
     - pctLosers: weighted % of households with change < -0.1%
     - totalHouseholds: sum of household weights
@@ -56,18 +57,23 @@ def aggregate_districts(input_csv: str, output_csv: str):
 
         if total_weight == 0:
             return pd.Series({
-                "avgChange": 0,
+                "relChange": 0,
+                "absChange": 0,
                 "pctWinners": 0,
                 "pctLosers": 0,
                 "totalHouseholds": 0,
                 "householdCount": len(group)
             })
 
-        # Average change = total change in net income / total baseline income
-        # Both are weighted sums
+        # Total weighted change in net income
         total_change = (abs_changes * weights).sum()
         total_income = (baseline_incomes * weights).sum()
-        avg_change = (total_change / total_income) * 100 if total_income != 0 else 0
+
+        # Relative change = total change / total income * 100 (percentage)
+        rel_change = (total_change / total_income) * 100 if total_income != 0 else 0
+
+        # Absolute change = total change / total weight (avg $ per household)
+        abs_change = total_change / total_weight
 
         # Winners: change > 0.1% (use individual pct changes for classification)
         winners_weight = weights[pct_changes > 0.1].sum()
@@ -78,7 +84,8 @@ def aggregate_districts(input_csv: str, output_csv: str):
         pct_losers = (losers_weight / total_weight) * 100
 
         return pd.Series({
-            "avgChange": avg_change,
+            "relChange": rel_change,
+            "absChange": abs_change,
             "pctWinners": pct_winners,
             "pctLosers": pct_losers,
             "totalHouseholds": total_weight,
@@ -86,7 +93,7 @@ def aggregate_districts(input_csv: str, output_csv: str):
         })
 
     aggregated = df.groupby("GeoJSON_District").apply(compute_district_stats).reset_index()
-    aggregated.columns = ["district", "avgChange", "pctWinners", "pctLosers", "totalHouseholds", "householdCount"]
+    aggregated.columns = ["district", "relChange", "absChange", "pctWinners", "pctLosers", "totalHouseholds", "householdCount"]
 
     # For Montana, duplicate the data for district 3002 (same data as 3001)
     mt_row = aggregated[aggregated["district"] == 3001]
@@ -96,7 +103,8 @@ def aggregate_districts(input_csv: str, output_csv: str):
         aggregated = pd.concat([aggregated, mt_3002], ignore_index=True)
 
     # Round for cleaner output
-    aggregated["avgChange"] = aggregated["avgChange"].round(3)
+    aggregated["relChange"] = aggregated["relChange"].round(3)
+    aggregated["absChange"] = aggregated["absChange"].round(0).astype(int)  # Round to nearest dollar
     aggregated["pctWinners"] = aggregated["pctWinners"].round(2)
     aggregated["pctLosers"] = aggregated["pctLosers"].round(2)
     aggregated["totalHouseholds"] = aggregated["totalHouseholds"].round(0).astype(int)
@@ -110,7 +118,8 @@ def aggregate_districts(input_csv: str, output_csv: str):
 
     # Summary stats
     print(f"\n  Overall stats:")
-    print(f"    Avg change: {aggregated['avgChange'].mean():.2f}%")
+    print(f"    Avg relative change: {aggregated['relChange'].mean():.2f}%")
+    print(f"    Avg absolute change: ${aggregated['absChange'].mean():,.0f}")
     print(f"    Avg pct winners: {aggregated['pctWinners'].mean():.1f}%")
     print(f"    Avg pct losers: {aggregated['pctLosers'].mean():.1f}%")
     print(f"    Total households: {aggregated['totalHouseholds'].sum():,.0f}")

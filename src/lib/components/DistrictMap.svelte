@@ -6,7 +6,7 @@
 
   export let dataset = 'obbba-vs-current-law'; // Which pre-aggregated file to load
   export let selectedDistrict = null; // null = nationwide
-  export let metric = 'avgChange'; // 'avgChange', 'pctWinners', 'pctLosers'
+  export let metric = 'relChange'; // 'relChange', 'absChange', 'pctWinners', 'pctLosers'
 
   const dispatch = createEventDispatcher();
 
@@ -106,15 +106,17 @@
       const text = await response.text();
       const lines = text.trim().split('\n');
 
+      // CSV format: district,relChange,absChange,pctWinners,pctLosers,totalHouseholds,householdCount
       districtAggregates = {};
       for (let i = 1; i < lines.length; i++) {
         const values = lines[i].split(',');
         const district = parseInt(values[0], 10);
         districtAggregates[district] = {
-          avgChange: parseFloat(values[1]),
-          pctWinners: parseFloat(values[2]),
-          pctLosers: parseFloat(values[3]),
-          households: parseInt(values[4], 10)
+          relChange: parseFloat(values[1]),
+          absChange: parseFloat(values[2]),
+          pctWinners: parseFloat(values[3]),
+          pctLosers: parseFloat(values[4]),
+          households: parseInt(values[5], 10)
         };
       }
 
@@ -132,13 +134,30 @@
     const agg = aggregates[districtId];
     if (!agg) return NEUTRAL_COLOR;
 
-    if (metricKey === 'avgChange') {
+    if (metricKey === 'relChange') {
       // Diverging scale: grey for negative, green for positive, white at 0
-      const value = agg.avgChange;
+      const value = agg.relChange;
       const maxPos = 5; // +5% max
       const maxNeg = -5; // -5% min
 
       if (Math.abs(value) < 0.1) return NEUTRAL_COLOR;
+
+      if (value > 0) {
+        const ratio = Math.min(value / maxPos, 1);
+        const idx = Math.floor(ratio * (POSITIVE_COLORS.length - 1));
+        return POSITIVE_COLORS[idx];
+      } else {
+        const ratio = Math.min(Math.abs(value) / Math.abs(maxNeg), 1);
+        const idx = Math.floor(ratio * (NEGATIVE_COLORS.length - 1));
+        return NEGATIVE_COLORS[idx];
+      }
+    } else if (metricKey === 'absChange') {
+      // Diverging scale: grey for negative, green for positive, white at 0
+      const value = agg.absChange;
+      const maxPos = 10000; // +$10,000 max
+      const maxNeg = -10000; // -$10,000 min
+
+      if (Math.abs(value) < 100) return NEUTRAL_COLOR; // Within $100 of zero
 
       if (value > 0) {
         const ratio = Math.min(value / maxPos, 1);
@@ -202,9 +221,14 @@
 
   // Format metric value for display
   function formatMetricValue(value, metricKey) {
-    if (metricKey === 'avgChange') {
+    if (metricKey === 'relChange') {
       const sign = value > 0 ? '+' : '';
       return `${sign}${value.toFixed(1)}%`;
+    } else if (metricKey === 'absChange') {
+      const sign = value > 0 ? '+' : '';
+      const absVal = Math.abs(Math.round(value));
+      const formatted = absVal.toLocaleString();
+      return `${sign}$${formatted}`;
     }
     return `${value.toFixed(0)}%`;
   }
@@ -407,7 +431,8 @@
   // Get metric label
   function getMetricLabel(metricKey) {
     switch (metricKey) {
-      case 'avgChange': return 'Avg. Change';
+      case 'relChange': return 'Rel. Change';
+      case 'absChange': return 'Abs. Change';
       case 'pctWinners': return 'Winners';
       case 'pctLosers': return 'Losers';
       default: return 'Value';
@@ -468,7 +493,8 @@
   <div class="map-header">
     <span class="map-title">Congressional Districts</span>
     <select class="metric-select" bind:value={metric}>
-      <option value="avgChange">Avg. Change</option>
+      <option value="relChange">Relative Change (%)</option>
+      <option value="absChange">Absolute Change ($)</option>
       <option value="pctWinners">% Winners</option>
       <option value="pctLosers">% Losers</option>
     </select>
@@ -499,10 +525,14 @@
       <div class="legend-scale">
         <div class="legend-gradient" class:winners={metric === 'pctWinners'} class:losers={metric === 'pctLosers'}></div>
         <div class="legend-labels">
-          {#if metric === 'avgChange'}
+          {#if metric === 'relChange'}
             <span>+5%</span>
             <span>0%</span>
             <span>-5%</span>
+          {:else if metric === 'absChange'}
+            <span>+$10K</span>
+            <span>$0</span>
+            <span>-$10K</span>
           {:else}
             <span>100%</span>
             <span>50%</span>
@@ -522,8 +552,12 @@
         {#if agg}
           <div class="district-stats">
             <div class="mini-stat">
-              <span class="mini-value" class:positive={agg.avgChange > 0} class:negative={agg.avgChange < 0}>{formatMetricValue(agg.avgChange, 'avgChange')}</span>
-              <span class="mini-label">avg change</span>
+              <span class="mini-value" class:positive={agg.relChange > 0} class:negative={agg.relChange < 0}>{formatMetricValue(agg.relChange, 'relChange')}</span>
+              <span class="mini-label">rel. change</span>
+            </div>
+            <div class="mini-stat">
+              <span class="mini-value" class:positive={agg.absChange > 0} class:negative={agg.absChange < 0}>{formatMetricValue(agg.absChange, 'absChange')}</span>
+              <span class="mini-label">abs. change</span>
             </div>
             <div class="mini-stat">
               <span class="mini-value positive">{agg.pctWinners.toFixed(0)}%</span>
