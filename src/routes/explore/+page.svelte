@@ -156,10 +156,23 @@
     }
   }
 
-  // Get top provisions for selected district
-  $: districtProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
-    ? provisionImpacts[selectedDistrict].slice(0, 5)
+  // Provision panel state
+  let provisionExpanded = false;
+
+  // Get provisions for selected district, separated by positive/negative
+  $: allProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
+    ? provisionImpacts[selectedDistrict]
     : [];
+
+  $: positiveProvisions = allProvisions.filter(p => p.avgImpact > 0);
+  $: negativeProvisions = allProvisions.filter(p => p.avgImpact < 0);
+
+  // Show top 3 of each when collapsed, all when expanded
+  $: displayPositive = provisionExpanded ? positiveProvisions : positiveProvisions.slice(0, 3);
+  $: displayNegative = provisionExpanded ? negativeProvisions : negativeProvisions.slice(0, 3);
+
+  // Check if there are more to show
+  $: hasMoreProvisions = positiveProvisions.length > 3 || negativeProvisions.length > 3;
 
   // Load data for a specific district (on-demand)
   async function loadDistrictData(district) {
@@ -245,8 +258,9 @@
   async function handleDistrictChange(event) {
     const newDistrict = event.detail.district;
 
-    // Clear selected household when changing districts
+    // Clear selected household and reset provision panel when changing districts
     selectedHousehold = null;
+    provisionExpanded = false;
 
     // Update URL
     const url = new URL(window.location.href);
@@ -432,19 +446,68 @@
               onPointClick={handlePointClick}
             />
             <!-- Provision impacts panel -->
-            {#if districtProvisions.length > 0}
+            {#if allProvisions.length > 0}
               <div class="provision-panel">
-                <h3>Top Provisions by Impact</h3>
-                <div class="provision-list">
-                  {#each districtProvisions as provision}
-                    <div class="provision-item">
-                      <span class="provision-name">{provision.shortName}</span>
-                      <span class="provision-value" class:positive={provision.avgImpact > 0} class:negative={provision.avgImpact < 0}>
-                        {provision.avgImpact > 0 ? '+' : ''}${Math.abs(provision.avgImpact).toLocaleString()}
-                      </span>
+                <h3>Provision Impacts</h3>
+
+                <!-- Positive impacts (gains) -->
+                {#if displayPositive.length > 0}
+                  <div class="provision-section">
+                    <div class="section-header positive">
+                      <span class="section-icon">▲</span>
+                      <span class="section-title">Gains</span>
                     </div>
-                  {/each}
-                </div>
+                    <div class="provision-list">
+                      {#each displayPositive as provision}
+                        <div class="provision-item">
+                          <span class="provision-name">{provision.shortName}</span>
+                          <span class="provision-value positive">
+                            +${provision.avgImpact.toLocaleString()}
+                          </span>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Negative impacts (losses) -->
+                {#if displayNegative.length > 0}
+                  <div class="provision-section">
+                    <div class="section-header negative">
+                      <span class="section-icon">▼</span>
+                      <span class="section-title">Losses</span>
+                    </div>
+                    <div class="provision-list">
+                      {#each displayNegative as provision}
+                        <div class="provision-item">
+                          <span class="provision-name">{provision.shortName}</span>
+                          <span class="provision-value negative">
+                            −${Math.abs(provision.avgImpact).toLocaleString()}
+                          </span>
+                        </div>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Expand/collapse button -->
+                {#if hasMoreProvisions}
+                  <button
+                    class="expand-btn"
+                    on:click={() => provisionExpanded = !provisionExpanded}
+                  >
+                    {provisionExpanded ? 'Show less' : `Show all (${allProvisions.length})`}
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      class:rotated={provisionExpanded}
+                    >
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                    </svg>
+                  </button>
+                {/if}
+
                 <p class="provision-note">Avg. impact per household</p>
               </div>
             {/if}
@@ -690,7 +753,9 @@
     padding: 12px 16px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     z-index: 10;
-    min-width: 180px;
+    min-width: 200px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
   }
 
   .provision-panel h3 {
@@ -700,13 +765,58 @@
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 0 0 10px 0;
+    margin: 0 0 12px 0;
+  }
+
+  .provision-section {
+    margin-bottom: 12px;
+  }
+
+  .provision-section:last-of-type {
+    margin-bottom: 8px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .section-icon {
+    font-size: 10px;
+  }
+
+  .section-header.positive .section-icon {
+    color: #319795;
+  }
+
+  .section-header.negative .section-icon {
+    color: #6B7280;
+  }
+
+  .section-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .section-header.positive .section-title {
+    color: #319795;
+  }
+
+  .section-header.negative .section-title {
+    color: #6B7280;
   }
 
   .provision-list {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
 
   .provision-item {
@@ -734,6 +844,38 @@
 
   .provision-value.negative {
     color: #6B7280;
+  }
+
+  .expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 8px;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .expand-btn:hover {
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  .expand-btn svg {
+    transition: transform 0.2s ease;
+  }
+
+  .expand-btn svg.rotated {
+    transform: rotate(180deg);
   }
 
   .provision-note {
@@ -907,6 +1049,7 @@
       right: 8px;
       left: 8px;
       min-width: auto;
+      max-height: 50vh;
       padding: 10px 12px;
     }
 
@@ -914,9 +1057,27 @@
       font-size: 11px;
     }
 
+    .section-header {
+      margin-bottom: 4px;
+      padding-bottom: 3px;
+    }
+
+    .section-icon {
+      font-size: 9px;
+    }
+
+    .section-title {
+      font-size: 10px;
+    }
+
     .provision-name,
     .provision-value {
       font-size: 12px;
+    }
+
+    .expand-btn {
+      font-size: 11px;
+      padding: 5px 6px;
     }
 
     .slider-group {
