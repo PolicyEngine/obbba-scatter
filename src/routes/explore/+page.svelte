@@ -505,7 +505,7 @@
                             {#if showRelativeImpact}
                               +{provision.avgRelativeImpact.toFixed(2)}%
                             {:else}
-                              +${provision.avgImpact.toLocaleString()}
+                              +${Math.round(provision.avgImpact).toLocaleString()}
                             {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
@@ -532,7 +532,7 @@
                             {#if showRelativeImpact}
                               {provision.avgRelativeImpact.toFixed(2)}%
                             {:else}
-                              −${Math.abs(provision.avgImpact).toLocaleString()}
+                              −${Math.round(Math.abs(provision.avgImpact)).toLocaleString()}
                             {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
