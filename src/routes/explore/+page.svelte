@@ -948,7 +948,8 @@
 
   .provision-tooltip {
     position: absolute;
-    left: 0;
+    right: 0;
+    left: auto;
     top: 100%;
     margin-top: 6px;
     padding: 10px 12px;
@@ -959,7 +960,7 @@
     line-height: 1.5;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-    max-width: 280px;
+    max-width: 260px;
     width: max-content;
     z-index: 100;
     opacity: 0;
@@ -973,7 +974,8 @@
     content: '';
     position: absolute;
     top: -5px;
-    left: 16px;
+    right: 16px;
+    left: auto;
     width: 0;
     height: 0;
     border-left: 5px solid transparent;
