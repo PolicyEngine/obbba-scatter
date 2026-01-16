@@ -938,31 +938,43 @@
   }
 
   .provision-tooltip {
-    position: fixed;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%) scale(0.95);
-    padding: 12px 16px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    padding: 10px 12px;
     background: rgba(24, 35, 51, 0.98);
     color: white;
     font-family: 'Inter', sans-serif;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    max-width: 320px;
-    width: max-content;
-    z-index: 1000;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    z-index: 100;
     opacity: 0;
     visibility: hidden;
-    transition: all 0.2s ease;
+    transform: translateY(-4px);
+    transition: all 0.15s ease;
     pointer-events: none;
+  }
+
+  .provision-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 12px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 5px solid rgba(24, 35, 51, 0.98);
   }
 
   .provision-item:hover .provision-tooltip {
     opacity: 1;
     visibility: visible;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translateY(0);
   }
 
   .provision-value {
