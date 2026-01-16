@@ -17,6 +17,10 @@
   let selectedDistrict = null;
   let selectedHousehold = null;
 
+  // Provision impacts data
+  let provisionImpacts = {};
+  let provisionImpactsLoaded = false;
+
   // Chart reference
   let chartComponent = null;
 
@@ -121,8 +125,41 @@
     'obbba-vs-current-law': 'districts/tcja-extension'
   };
 
+  // Provision impacts file mapping
+  const provisionFiles = {
+    'obbba-vs-current-policy': 'provision_impacts.json',
+    'obbba-vs-current-law': 'provision_impacts_current_law.json'
+  };
+
   // Cache for loaded district data
   let districtDataCache = {};
+
+  // Load provision impacts data
+  async function loadProvisionImpacts() {
+    const filename = provisionFiles[selectedDataset];
+    if (!filename) return;
+
+    try {
+      const basePath = import.meta.env.BASE_URL || '/';
+      const normalizedBase = basePath.endsWith('/') ? basePath : basePath + '/';
+      const url = `${normalizedBase}${filename}`;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load provision impacts');
+
+      provisionImpacts = await response.json();
+      provisionImpactsLoaded = true;
+      console.log('Loaded provision impacts for', Object.keys(provisionImpacts).length, 'districts');
+    } catch (error) {
+      console.error('Error loading provision impacts:', error);
+      provisionImpacts = {};
+    }
+  }
+
+  // Get top provisions for selected district
+  $: districtProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
+    ? provisionImpacts[selectedDistrict].slice(0, 5)
+    : [];
 
   // Load data for a specific district (on-demand)
   async function loadDistrictData(district) {
@@ -277,10 +314,16 @@
   // Load data on mount (only if district is in URL)
   onMount(async () => {
     parseUrlParams();
+    await loadProvisionImpacts();
     if (selectedDistrict) {
       await loadDistrictData(selectedDistrict);
     }
   });
+
+  // Reload provision impacts when dataset changes
+  $: if (browser && selectedDataset) {
+    loadProvisionImpacts();
+  }
 
   // Re-render chart when data changes
   $: if (chartComponent && data.length > 0) {
@@ -388,6 +431,23 @@
               {selectedHousehold}
               onPointClick={handlePointClick}
             />
+            <!-- Provision impacts panel -->
+            {#if districtProvisions.length > 0}
+              <div class="provision-panel">
+                <h3>Top Provisions by Impact</h3>
+                <div class="provision-list">
+                  {#each districtProvisions as provision}
+                    <div class="provision-item">
+                      <span class="provision-name">{provision.shortName}</span>
+                      <span class="provision-value" class:positive={provision.avgImpact > 0} class:negative={provision.avgImpact < 0}>
+                        {provision.avgImpact > 0 ? '+' : ''}${Math.abs(provision.avgImpact).toLocaleString()}
+                      </span>
+                    </div>
+                  {/each}
+                </div>
+                <p class="provision-note">Avg. impact per household</p>
+              </div>
+            {/if}
           {:else}
             <div class="select-district-prompt">
               <div class="prompt-icon">
@@ -616,6 +676,72 @@
   .scatter-wrapper {
     width: 100%;
     height: 100%;
+    position: relative;
+  }
+
+  /* Provision impacts panel */
+  .provision-panel {
+    position: absolute;
+    top: 60px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    min-width: 180px;
+  }
+
+  .provision-panel h3 {
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+  }
+
+  .provision-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .provision-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .provision-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #334155;
+  }
+
+  .provision-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .provision-value.positive {
+    color: #319795;
+  }
+
+  .provision-value.negative {
+    color: #6B7280;
+  }
+
+  .provision-note {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: #94a3b8;
+    margin: 8px 0 0 0;
+    text-align: center;
   }
 
   .select-district-prompt {
@@ -772,6 +898,24 @@
     }
 
     .control-label {
+      font-size: 12px;
+    }
+
+    .provision-panel {
+      top: auto;
+      bottom: 80px;
+      right: 8px;
+      left: 8px;
+      min-width: auto;
+      padding: 10px 12px;
+    }
+
+    .provision-panel h3 {
+      font-size: 11px;
+    }
+
+    .provision-name,
+    .provision-value {
       font-size: 12px;
     }
 
