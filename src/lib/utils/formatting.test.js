@@ -98,9 +98,9 @@ describe('formatting utilities', () => {
       // PolicyEngine Design System fonts
       expect(getFontFamily('sans')).toContain('Inter');
       expect(getFontFamily('mono')).toContain('JetBrains Mono');
-      expect(getFontFamily('serif')).toContain('Roboto Serif');
-      expect(getFontFamily('chart')).toContain('Roboto Serif');
-      expect(getFontFamily('body')).toContain('Roboto');
+      expect(getFontFamily('serif')).toContain('Inter');
+      expect(getFontFamily('chart')).toContain('Inter');
+      expect(getFontFamily('body')).toContain('Inter');
     });
 
     it('defaults to sans font', () => {

@@ -37,9 +37,9 @@ export function formatDollarChange(value) {
 export function getFontFamily(type = 'sans') {
   const fontMap = {
     'sans': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    'body': "'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    'serif': "'Roboto Serif', Georgia, 'Times New Roman', serif",
-    'chart': "'Roboto Serif', Georgia, 'Times New Roman', serif",
+    'body': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    'serif': "'Inter', Georgia, 'Times New Roman', serif",
+    'chart': "'Inter', Georgia, 'Times New Roman', serif",
     'mono': "'JetBrains Mono', 'Fira Code', Consolas, monospace"
   };
   return fontMap[type] || fontMap['sans'];
