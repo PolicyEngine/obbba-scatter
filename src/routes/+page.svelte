@@ -1207,10 +1207,10 @@
     --grid-lines: #E2E8F0;
 
     /* PolicyEngine Typography */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: var(--pe-font-family-primary);
     --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-chart: 'Inter', Georgia, 'Times New Roman', serif;
+    --font-body: var(--pe-font-family-primary);
+    --font-chart: var(--pe-font-family-primary);
   }
   
   :global(body) {

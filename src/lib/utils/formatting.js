@@ -36,10 +36,10 @@ export function formatDollarChange(value) {
 // Get font family from type (PolicyEngine Design System)
 export function getFontFamily(type = 'sans') {
   const fontMap = {
-    'sans': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    'body': "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    'serif': "'Inter', Georgia, 'Times New Roman', serif",
-    'chart': "'Inter', Georgia, 'Times New Roman', serif",
+    'sans': "var(--pe-font-family-primary)",
+    'body': "var(--pe-font-family-primary)",
+    'serif': "var(--pe-font-family-primary)",
+    'chart': "var(--pe-font-family-primary)",
     'mono': "'JetBrains Mono', 'Fira Code', Consolas, monospace"
   };
   return fontMap[type] || fontMap['sans'];
