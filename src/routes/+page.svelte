@@ -961,7 +961,7 @@
   <!-- PolicyEngine Design System Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Roboto:wght@400;500;700&family=Roboto+Serif:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </svelte:head>
 
 <div class="app-container">
@@ -1215,10 +1215,10 @@
     --grid-lines: #E2E8F0;
 
     /* PolicyEngine Typography */
-    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-sans: var(--pe-font-family-primary);
     --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-    --font-body: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --font-chart: 'Roboto Serif', Georgia, 'Times New Roman', serif;
+    --font-body: var(--pe-font-family-primary);
+    --font-chart: var(--pe-font-family-primary);
   }
   
   :global(body) {

@@ -95,12 +95,12 @@ describe('formatting utilities', () => {
 
   describe('getFontFamily', () => {
     it('returns correct font families', () => {
-      // PolicyEngine Design System fonts
-      expect(getFontFamily('sans')).toContain('Inter');
+      // PolicyEngine Design System fonts via CSS variable
+      expect(getFontFamily('sans')).toBe('var(--pe-font-family-primary)');
       expect(getFontFamily('mono')).toContain('JetBrains Mono');
-      expect(getFontFamily('serif')).toContain('Roboto Serif');
-      expect(getFontFamily('chart')).toContain('Roboto Serif');
-      expect(getFontFamily('body')).toContain('Roboto');
+      expect(getFontFamily('serif')).toBe('var(--pe-font-family-primary)');
+      expect(getFontFamily('chart')).toBe('var(--pe-font-family-primary)');
+      expect(getFontFamily('body')).toBe('var(--pe-font-family-primary)');
     });
 
     it('defaults to sans font', () => {
