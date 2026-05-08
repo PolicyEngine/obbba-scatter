@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { page } from '$app/stores';
   import { DATASETS } from '$lib/config/datasets.js';
   import { scrollStates, HOUSEHOLD_COUNTS } from '$lib/config/views.js';
@@ -167,6 +167,33 @@
     scrollObserver = createIntersectionObserver(textSections, handleSectionChange, scrollContainer);
   }
 
+  function getSectionIdForHousehold(household) {
+    const targetIndex = findSectionForHousehold(household, scrollStates);
+    return scrollStates[targetIndex]?.id;
+  }
+
+  function scrollToSectionIndex(targetIndex, behavior = 'smooth') {
+    const targetSection = textSections[targetIndex];
+    if (!scrollContainer || !targetSection) return false;
+
+    const targetTop = targetSection.offsetTop - (scrollContainer.clientHeight - targetSection.offsetHeight) / 2;
+    const maxScrollTop = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+    const top = Math.max(0, Math.min(targetTop, maxScrollTop));
+
+    scrollContainer.scrollTo({ top, behavior });
+    return true;
+  }
+
+  async function updateHouseholdUrl(householdId) {
+    isInternalUpdate = true;
+    try {
+      await updateUrlWithHousehold(householdId, selectedDataset);
+    } catch (error) {
+      isInternalUpdate = false;
+      throw error;
+    }
+  }
+
   // Handle pending scroll to household when sections are ready
   $: if (pendingScrollToHousehold && textSections.length > 0 && textSections[pendingScrollToHousehold.targetIndex]) {
     const { household, targetIndex } = pendingScrollToHousehold;
@@ -174,12 +201,9 @@
     // Ensure the household is selected
     selectedHousehold = household;
     
-    const isInIframe = window.self !== window.top;
     // Scroll to the section
     setTimeout(() => {
-      if (textSections[targetIndex]) {
-        textSections[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      scrollToSectionIndex(targetIndex);
     }, 200);
     
     // Clear the pending scroll
@@ -220,12 +244,11 @@
   }
   
   // Handle household selection
-  async function selectHousehold(household, shouldScroll = true) {
+  async function selectHousehold(household, shouldScroll = true, sectionId = null) {
     // If not scrolling, lock the scroll position
+    const savedScrollTop = scrollContainer?.scrollTop || 0;
     if (!shouldScroll && scrollContainer) {
       // Save current scroll position
-      const savedScrollTop = scrollContainer.scrollTop;
-      
       // Use a debounced scroll handler to avoid vibration
       let scrollTimeout;
       const maintainScroll = (e) => {
@@ -251,37 +274,23 @@
     }
     
     selectedHousehold = household;
-    
-    // If we're in a group view, update the random household for that section
+
     const currentState = scrollStates[$currentStateIndex];
-    if (currentState && currentState.viewType === 'group') {
-      // Update the random household for this section - use object spread
+    const targetSectionId = sectionId || (shouldScroll ? getSectionIdForHousehold(household) : currentState?.id?.replace('-individual', ''));
+    let scrollTargetIndex = -1;
+
+    if (targetSectionId && targetSectionId !== 'intro' && targetSectionId !== 'all-households') {
       randomHouseholds = {
         ...randomHouseholds,
-        [currentState.id]: { ...household }
+        [targetSectionId]: { ...household }
       };
-      
-      // Only scroll if explicitly requested (not when randomizing) AND not in iframe
-      const isInIframe = window.self !== window.top;
-      if (shouldScroll && !isInIframe) {
-        // Find the next individual view and scroll to it
-        const nextIndex = $currentStateIndex + 1;
-        if (scrollStates[nextIndex] && scrollStates[nextIndex].viewType === 'individual') {
-          // Scroll to the individual view
-          if (textSections[nextIndex]) {
-            textSections[nextIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
+
+      if (shouldScroll) {
+        scrollTargetIndex = scrollStates.findIndex(state => state.id === targetSectionId);
       }
-    } else if (currentState && currentState.viewType === 'individual') {
-      // Update the random household for the base section
-      const baseViewId = currentState.id.replace('-individual', '');
-      randomHouseholds = {
-        ...randomHouseholds,
-        [baseViewId]: { ...household }
-      };
-      
-      // Update household display
+    }
+
+    if (currentState && currentState.viewType === 'individual') {
       const sectionIndex = Math.floor($currentStateIndex / 2);
       
       // Animate other household numbers
@@ -297,7 +306,20 @@
     animateHouseholdEmphasis(household.id);
     
     // Update URL
-    await updateUrlWithHousehold(household.id, selectedDataset);
+    await updateHouseholdUrl(household.id);
+
+    if (shouldScroll && scrollTargetIndex >= 0) {
+      await tick();
+      requestAnimationFrame(() => {
+        if (!scrollToSectionIndex(scrollTargetIndex)) {
+          pendingScrollToHousehold = { household, targetIndex: scrollTargetIndex };
+        }
+      });
+    } else if (!shouldScroll && scrollContainer) {
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = savedScrollTop;
+      });
+    }
     
     // Force chart re-render
     if (chartComponent?.forceRender) {
@@ -306,8 +328,8 @@
   }
   
   // Randomize household for current section
-  function randomizeHousehold() {
-    const baseViewId = currentState?.id?.replace('-individual', '') || currentState?.id;
+  function randomizeHousehold(sectionId = null) {
+    const baseViewId = sectionId || currentState?.id?.replace('-individual', '') || currentState?.id;
     const state = scrollStates.find(s => s.id === baseViewId);
     
     if (state && data.length > 0) {
@@ -316,7 +338,7 @@
       
       if (newHousehold) {
         // Don't scroll when randomizing
-        selectHousehold({ ...newHousehold }, false);
+        selectHousehold({ ...newHousehold }, false, baseViewId);
         
         // Re-trigger animations
         const sectionIndex = Math.floor($currentStateIndex / 2);
@@ -704,18 +726,14 @@
           };
         }
         
-        // Scroll to section only if not in iframe
-        const isInIframe = window.self !== window.top;
-        if (!isInIframe) {
-          if (textSections[targetIndex] && scrollContainer) {
-            // Delay to ensure DOM is ready
-            setTimeout(() => {
-              textSections[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 100);
-          } else {
-            // If sections aren't ready yet, store for later
-            pendingScrollToHousehold = { household, targetIndex };
-          }
+        if (textSections[targetIndex] && scrollContainer) {
+          // Delay to ensure DOM is ready
+          setTimeout(() => {
+            scrollToSectionIndex(targetIndex);
+          }, 100);
+        } else {
+          // If sections aren't ready yet, store for later
+          pendingScrollToHousehold = { household, targetIndex };
         }
         
         // Ensure chart updates
@@ -978,7 +996,7 @@
       interpolationT={$currentInterpolationT}
       {randomHouseholds}
       {selectedHousehold}
-      onPointClick={(household) => selectHousehold(household, false)}
+      onPointClick={(household) => selectHousehold(household, true)}
     />
   </div>
   
@@ -1121,7 +1139,7 @@
                       selectedDataset={selectedDataset}
                       currentState={state}
                       sectionIndex={0}
-                      onRandomize={randomizeHousehold}
+                      onRandomize={() => randomizeHousehold(state.id)}
                     />
                   </div>
                 {/if}
