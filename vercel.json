@@ -1,0 +1,30 @@
+{
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build:policyengine",
+  "outputDirectory": "build",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/us/obbba-household-explorer",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/us/obbba-household-explorer",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/us/obbba-household-explorer/explore",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/us/obbba-household-explorer/explore/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/us/obbba-household-explorer/:path*",
+      "destination": "/:path*"
+    }
+  ]
+}
