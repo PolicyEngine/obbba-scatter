@@ -1,7 +1,8 @@
 {
-  "installCommand": "npm ci",
-  "buildCommand": "npm run build:policyengine",
-  "outputDirectory": "build",
+  "installCommand": "bun install",
+  "buildCommand": "bun run build",
+  "outputDirectory": "out",
+  "framework": "nextjs",
   "redirects": [
     {
       "source": "/",
@@ -16,11 +17,11 @@
     },
     {
       "source": "/us/obbba-household-explorer/explore",
-      "destination": "/index.html"
+      "destination": "/explore.html"
     },
     {
       "source": "/us/obbba-household-explorer/explore/:path*",
-      "destination": "/index.html"
+      "destination": "/explore.html"
     },
     {
       "source": "/us/obbba-household-explorer/:path*",
