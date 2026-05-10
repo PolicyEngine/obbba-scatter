@@ -1,7 +1,7 @@
 {
   "installCommand": "bun install",
   "buildCommand": "bun run build",
-  "outputDirectory": "out",
+  "outputDirectory": ".next",
   "framework": "nextjs",
   "redirects": [
     {
