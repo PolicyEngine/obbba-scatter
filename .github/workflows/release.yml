@@ -17,28 +17,27 @@ jobs:
     
     steps:
     - uses: actions/checkout@v5
-    
+
     - name: Use Node.js
       uses: actions/setup-node@v6
       with:
         node-version: '20.x'
-        cache: 'npm'
-    
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
     - name: Install dependencies
-      run: |
-        npm ci
-        # Workaround for rollup optional dependencies issue
-        npm i @rollup/rollup-linux-x64-gnu --save-optional || true
-    
-    - name: Run tests
-      run: npm test -- --run
-    
+      run: bun install --frozen-lockfile
+
+    - name: Check formatting
+      run: bun run format:check
+
     - name: Build project
-      run: npm run build
-    
+      run: bun run build
+
     - name: Create release archive
       run: |
-        cd build
+        cd out
         zip -r ../obbba-household-by-household-${{ github.ref_name }}.zip .
         cd ..
     
