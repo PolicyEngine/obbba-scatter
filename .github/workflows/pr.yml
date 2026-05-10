@@ -40,29 +40,31 @@ jobs:
   preview:
     name: Build Preview
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v5
-    
+
     - name: Use Node.js
       uses: actions/setup-node@v6
       with:
         node-version: '20.x'
-        cache: 'npm'
-    
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+
     - name: Install dependencies
-      run: npm ci
-    
+      run: bun install --frozen-lockfile
+
     - name: Build preview
-      run: npm run build
+      run: bun run build
       env:
-        BASE_PATH: '/pr-preview/pr-${{ github.event.pull_request.number }}'
-    
+        NEXT_PUBLIC_BASE_PATH: '/pr-preview/pr-${{ github.event.pull_request.number }}'
+
     - name: Upload preview artifact
       uses: actions/upload-artifact@v7
       with:
         name: preview-${{ github.event.pull_request.number }}
-        path: build/
+        path: out/
         retention-days: 7
     
     - name: Comment PR
