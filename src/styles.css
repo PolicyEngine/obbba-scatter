@@ -1,5 +1,4 @@
 :root {
-  --pe-site-header-height: var(--spacing-header, 58px);
   --pe-teal: #319795;
   --pe-teal-dark: #267875;
   --pe-ink: #1f2937;
@@ -37,7 +36,7 @@ button {
 
 .topbar {
   position: sticky;
-  top: var(--pe-site-header-height);
+  top: 0;
   z-index: 10;
   display: flex;
   align-items: center;

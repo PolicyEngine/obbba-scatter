@@ -1,5 +1,4 @@
 import './globals.css';
-import PolicyEngineHeader from './PolicyEngineHeader';
 
 export const metadata = {
   title: 'OBBBA Household Explorer',
@@ -12,10 +11,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>
-        <PolicyEngineHeader />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
