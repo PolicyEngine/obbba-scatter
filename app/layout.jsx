@@ -1,5 +1,5 @@
-import { PolicyEngineShell } from "@policyengine/ui-kit/layout";
-import "@policyengine/ui-kit/styles.css";
+import { PolicyEngineShell } from '@policyengine/ui-kit/layout';
+import '@policyengine/ui-kit/styles.css';
 
 import './globals.css';
 
@@ -15,7 +15,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <PolicyEngineShell country="us">{children}        </PolicyEngineShell>
+        <PolicyEngineShell country="us">{children} </PolicyEngineShell>
       </body>
     </html>
   );
