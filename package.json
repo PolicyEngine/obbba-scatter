@@ -3,23 +3,44 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "format": "prettier --write \"app/**/*.{js,jsx,css}\" \"src/**/*.{js,jsx,css}\"",
-    "format:check": "prettier --check \"app/**/*.{js,jsx,css}\" \"src/**/*.{js,jsx,css}\""
+    "dev": "vite dev",
+    "build": "vite build",
+    "build:github": "vite build",
+    "build:policyengine": "BASE_PATH=/us/obbba-household-explorer vite build",
+    "preview": "vite preview",
+    "preview:policyengine": "BASE_PATH=/us/obbba-household-explorer vite preview",
+    "serve:policyengine": "node serve-policyengine.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "format": "prettier --write \"src/**/*.{js,svelte,json,css}\"",
+    "format:check": "prettier --check \"src/**/*.{js,svelte,json,css}\"",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
+    "deploy": "npm run build && npx gh-pages -d build -t true"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.0",
-    "postcss": "^8.5.0",
+    "@sveltejs/adapter-auto": "^6.0.1",
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.27.0",
+    "@sveltejs/vite-plugin-svelte": "^6.2.1",
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/svelte": "^5.2.8",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4",
+    "happy-dom": "^20.0.8",
+    "jsdom": "^26.1.0",
     "prettier": "^3.6.2",
-    "tailwindcss": "^4.2.0"
+    "prettier-plugin-svelte": "^3.4.0",
+    "svelte": "^5.37.3",
+    "svelte-check": "^4.3.3",
+    "vite": "^7.0.6",
+    "vitest": "^3.2.4"
   },
   "type": "module",
   "dependencies": {
-    "@policyengine/ui-kit": "^0.12.0",
-    "next": "^16.2.6",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "d3": "^7.9.0",
+    "maplibre-gl": "^5.15.0",
+    "papaparse": "^5.5.3"
   }
 }
