@@ -8,11 +8,12 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-.next
-out
 dist
 dist-ssr
 *.local
+
+# SvelteKit
+.svelte-kit/*
 
 # Build output
 build/
