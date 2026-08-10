@@ -100,3 +100,20 @@ jobs:
         name: build-files
         path: build/
         retention-days: 1
+
+  shell-check:
+    name: Layout carries the PolicyEngine site shell
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Assert the site shell stays in the root layout
+      # The app is client-rendered (adapter-static SPA fallback), so the
+      # built HTML cannot be grepped; assert on the layout source instead.
+      run: |
+        layout=src/routes/+layout.svelte
+        for needle in "label: 'Research'" "label: 'Model'" "label: 'API'" "label: 'Donate'" "label: 'About us'" "label: 'Developer tools'" "label: 'Privacy policy'" "label: 'Terms and conditions'" "policyengine-white.svg" "pe-shell-header" "pe-shell-site-footer"; do
+          grep -qF -- "$needle" "$layout" || { echo "MISSING from $layout: $needle"; exit 1; }
+        done
+        echo "Site shell present in the root layout."
