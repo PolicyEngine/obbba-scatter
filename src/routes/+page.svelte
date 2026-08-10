@@ -1253,7 +1253,7 @@
   
   .app-container {
     width: 100%;
-    height: 100vh;
+    height: calc(100vh - var(--pe-shell-height, 0px));
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1268,7 +1268,7 @@
   /* Full-screen chart background */
   .chart-background {
     position: fixed; /* Fixed to viewport */
-    top: 0; /* Start from top now that header is removed */
+    top: var(--pe-shell-height, 0px); /* Below the PolicyEngine site header */
     left: 0;
     right: 0;
     bottom: 0;
@@ -1284,7 +1284,7 @@
   /* Title overlay - always visible, centered */
   .title-overlay {
     position: fixed;
-    top: 2rem;
+    top: calc(2rem + var(--pe-shell-height, 0px));
     left: 50%;
     transform: translateX(-50%);
     z-index: 20; /* Higher than content overlay (15) to be above boxes */
@@ -1334,7 +1334,7 @@
   /* Top right links */
   .top-right-links {
     position: fixed;
-    top: 2rem;
+    top: calc(2rem + var(--pe-shell-height, 0px));
     right: 2rem;
     z-index: 20;
     display: flex;
