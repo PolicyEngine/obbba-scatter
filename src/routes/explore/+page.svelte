@@ -659,7 +659,6 @@
         <HouseholdProfile
           household={selectedHousehold}
           {selectedDataset}
-          dataSource="district"
           onRandomize={randomizeHousehold}
         />
       </div>

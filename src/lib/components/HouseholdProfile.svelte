@@ -1,10 +1,11 @@
 <script>
   import { formatCurrency, formatDollarChange, formatPercentage } from '../utils/formatting.js';
   import { copyHouseholdUrl } from '../utils/clipboard.js';
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
-  import { getBaselineLabel, getResultMethodology } from './profileContext.js';
+  import { getBaselineLabel } from './profileContext.js';
+  import { revealProvisionDetails } from './profileDisclosure.js';
 
   // Custom interpolation function for train station board effect
   function trainStationInterpolate(from, to) {
@@ -22,14 +23,28 @@
 
   export let household = null;
   export let selectedDataset = 'tcja-expiration';
-  export let dataSource = 'national-microcosm';
   export let currentState = null;
   export let sectionIndex = 0;
   export let onRandomize = () => {};
 
   let showHouseholdDetails = false;
   let showProvisionDetails = false;
+  let provisionDetailsElement = null;
   let relativeImpactAvailable = true;
+
+  async function toggleProvisionDetails(event) {
+    const button = event.currentTarget;
+    showProvisionDetails = !showProvisionDetails;
+
+    if (!showProvisionDetails) return;
+
+    await tick();
+    requestAnimationFrame(() => {
+      if (!button?.isConnected) return;
+      const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      revealProvisionDetails(provisionDetailsElement, prefersReducedMotion);
+    });
+  }
 
   // Animated values with train station board effect
   const householdId = tweened(0, {
@@ -729,7 +744,9 @@
         </div>
         <button
           class="expand-button"
-          on:click={() => (showProvisionDetails = !showProvisionDetails)}
+          on:click={toggleProvisionDetails}
+          aria-expanded={showProvisionDetails}
+          aria-controls={`provision-details-${household.id}`}
           title="{showProvisionDetails ? 'Hide' : 'Show'} provision breakdown"
         >
           <span class="expand-icon">{showProvisionDetails ? '−' : '+'}</span>
@@ -740,7 +757,11 @@
 
     <!-- Provision Details (Expandable) -->
     {#if showProvisionDetails}
-      <div class="expandable-details provision-details">
+      <div
+        class="expandable-details provision-details"
+        id={`provision-details-${household.id}`}
+        bind:this={provisionDetailsElement}
+      >
         {#if provisionBreakdown.length > 0}
           {#each provisionBreakdown as provision}
             <div class="detail-item provision-item">
@@ -794,7 +815,6 @@
         {/if}
       </div>
     {/if}
-    <p class="result-methodology">{getResultMethodology(dataSource)}</p>
   </div>
 {/if}
 
@@ -926,15 +946,6 @@
     color: var(--text-secondary);
     font-style: italic;
     margin: 0;
-  }
-
-  .result-methodology {
-    margin: 1rem 0 0;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(148, 163, 184, 0.35);
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-    line-height: 1.45;
   }
 
   /* Color logic for positive/negative/zero values */

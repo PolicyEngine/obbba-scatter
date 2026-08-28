@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { HOUSEHOLD_WEIGHT_FIELD, getHouseholdWeight } from './householdWeight.js';
+import { normalizeHouseholdWeight } from './householdWeight.js';
 
 // Load just 1000 points for instant visualization
 export async function loadTinyVisualization(onUpdate) {
@@ -28,23 +28,26 @@ export async function loadTinyVisualization(onUpdate) {
       fastMode: true
     });
 
-    // Process the display-only sample. Full profiles replace it in the background.
-    const data = result.data.map((d, i) => ({
-      id: String(d['Household ID'] ?? i),
-      householdId: d['Household ID'] ?? i,
-      'Market Income': d['Market Income'] || 0,
-      'Total change in net income': d['Total change in net income'] || 0,
-      'Change in Household Net Income': d['Total change in net income'] || 0, // Alias
-      [HOUSEHOLD_WEIGHT_FIELD]: getHouseholdWeight(d),
-      'Percentage change in net income': d['Percentage change in net income'] ?? 0,
-      // Placeholder demographics for compatibility
-      'Number of Dependents': 0,
-      Dependents: 0,
-      'Age of Head': 40,
-      Age: 40,
-      'Is Married': false,
-      State: null // Will be filled when full data loads
-    }));
+    // Preserve the full sampled profile so disclosures work immediately.
+    const data = result.data.map((d, i) =>
+      normalizeHouseholdWeight({
+        ...d,
+        id: String(d['Household ID'] ?? i),
+        householdId: d['Household ID'] ?? i,
+        'Market Income': Number(d['Market Income']) || 0,
+        'Total change in net income': Number(d['Total change in net income']) || 0,
+        'Change in Household Net Income': Number(d['Total change in net income']) || 0,
+        'Percentage change in net income': d['Percentage change in net income'] ?? 0,
+        'Number of Dependents': Number(d['Number of Dependents'] || d.Dependents) || 0,
+        'Age of Head': Number(d['Age of Head'] || d.Age) || 40,
+        'Is Married': !!(
+          d['Is Married'] === true ||
+          d['Is Married'] === 'True' ||
+          d['Is Married'] === 1 ||
+          d['Is Married'] === '1'
+        )
+      })
+    );
 
     const totalTime = performance.now() - startTime;
     console.log(
