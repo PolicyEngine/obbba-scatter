@@ -8,6 +8,7 @@
   import ScatterPlot from '$lib/components/ScatterPlot.svelte';
   import HouseholdProfile from '$lib/components/HouseholdProfile.svelte';
   import { COLORS } from '$lib/config/colors.js';
+  import { getRandomWeightedHousehold } from '$lib/navigation/scrollHandler.js';
 
   // Data state
   let data = [];
@@ -26,7 +27,7 @@
 
   // Y-axis scale control (logarithmic slider)
   let yAxisMax = 500000; // Default 500k
-  const yAxisMin = 50000;   // $50K minimum
+  const yAxisMin = 50000; // $50K minimum
   const yAxisMaxLimit = 10000000; // $10M maximum
 
   // Format value for display
@@ -49,7 +50,7 @@
   function valueToSlider(value) {
     const minLog = Math.log(yAxisMin);
     const maxLog = Math.log(yAxisMaxLimit);
-    return (Math.log(value) - minLog) / (maxLog - minLog) * 100;
+    return ((Math.log(value) - minLog) / (maxLog - minLog)) * 100;
   }
 
   // Reactive slider position
@@ -78,13 +79,29 @@
 
     // Congressional districts by state (simplified)
     const districtsByState = {
-      'CA': 52, 'TX': 38, 'FL': 28, 'NY': 26, 'PA': 17,
-      'IL': 17, 'OH': 15, 'GA': 14, 'NC': 14, 'MI': 13
+      CA: 52,
+      TX: 38,
+      FL: 28,
+      NY: 26,
+      PA: 17,
+      IL: 17,
+      OH: 15,
+      GA: 14,
+      NC: 14,
+      MI: 13
     };
 
     const stateFips = {
-      'CA': 6, 'TX': 48, 'FL': 12, 'NY': 36, 'PA': 42,
-      'IL': 17, 'OH': 39, 'GA': 13, 'NC': 37, 'MI': 26
+      CA: 6,
+      TX: 48,
+      FL: 12,
+      NY: 36,
+      PA: 42,
+      IL: 17,
+      OH: 39,
+      GA: 13,
+      NC: 37,
+      MI: 26
     };
 
     for (let i = 0; i < count; i++) {
@@ -97,19 +114,19 @@
       // Generate realistic income and tax change values
       const income = Math.exp(Math.random() * 4 + 9); // Log-normal distribution, roughly $8k - $500k
       const baseChange = (Math.random() - 0.4) * 10; // Slightly positive bias
-      const incomeEffect = income > 200000 ? -2 : (income < 50000 ? 1.5 : 0);
+      const incomeEffect = income > 200000 ? -2 : income < 50000 ? 1.5 : 0;
       const percentChange = baseChange + incomeEffect + (Math.random() - 0.5) * 3;
 
       mockData.push({
         id: i + 1,
         'Household ID': i + 1,
-        'State': state,
+        State: state,
         'Congressional District': congressionalDistrict,
         'Market Income': Math.round(income),
         'Gross Income': Math.round(income * 1.1),
         'Household Weight': Math.round(Math.random() * 5000 + 500),
         'Percentage change in net income': Math.round(percentChange * 100) / 100,
-        'Total change in net income': Math.round(percentChange * income / 100),
+        'Total change in net income': Math.round((percentChange * income) / 100),
         'Household Size': Math.floor(Math.random() * 4) + 1,
         'Number of Dependents': Math.floor(Math.random() * 3),
         'Age of Head': Math.floor(Math.random() * 50) + 25
@@ -133,27 +150,47 @@
 
   // Provision descriptions for tooltips
   const provisionDescriptions = {
-    'Tax Rate Reform': 'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.',
-    'Standard Deduction Reform': 'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.',
-    'Exemption Reform': 'Continues TCJA\'s repeal of personal exemptions, which were $4,050 per person before 2018.',
-    'CTC SSN Requirement': 'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.',
-    'CTC Expansion': 'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.',
-    'CDCC Reform': 'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.',
-    'QBI Deduction Reform': 'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.',
-    'AMT Reform': 'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.',
-    'Miscellaneous Reform': 'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.',
-    'Casualty Loss Repeal': 'Continues limitation of casualty loss deductions to federally declared disaster areas only.',
-    'Other Itemized Deductions Reform': 'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).',
-    'Limitation on Itemized Deductions Reform': 'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.',
-    'Estate Tax Reform': 'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.',
-    'SALT Cap Reform': 'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.',
-    'Tip Income Exemption': 'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.',
-    'Overtime Exemption': 'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.',
-    'Senior Deduction': 'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.',
-    'Auto Loan Interest': 'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.',
-    'SNAP Takeup Reform': 'Changes in SNAP (food stamp) eligibility based on projected participation rate changes.',
-    'ACA Takeup Reform': 'Changes in ACA premium tax credit eligibility based on CBO projections for subsidy participation rates.',
-    'Medicaid Takeup Reform': 'Changes in Medicaid eligibility based on projected participation rate changes.'
+    'Tax Rate Reform':
+      'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.',
+    'Standard Deduction Reform':
+      'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.',
+    'Exemption Reform':
+      "Continues TCJA's repeal of personal exemptions, which were $4,050 per person before 2018.",
+    'CTC SSN Requirement':
+      'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.',
+    'CTC Expansion':
+      'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.',
+    'CDCC Reform':
+      'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.',
+    'QBI Deduction Reform':
+      'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.',
+    'AMT Reform':
+      'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.',
+    'Miscellaneous Reform':
+      'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.',
+    'Casualty Loss Repeal':
+      'Continues limitation of casualty loss deductions to federally declared disaster areas only.',
+    'Other Itemized Deductions Reform':
+      'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).',
+    'Limitation on Itemized Deductions Reform':
+      'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.',
+    'Estate Tax Reform':
+      'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.',
+    'SALT Cap Reform':
+      'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.',
+    'Tip Income Exemption':
+      'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.',
+    'Overtime Exemption':
+      'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.',
+    'Senior Deduction':
+      'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.',
+    'Auto Loan Interest':
+      'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.',
+    'SNAP Takeup Reform': 'Reduced-form scenario for projected changes in SNAP participation.',
+    'ACA Takeup Reform':
+      'Reduced-form scenario for projected changes in marketplace participation and premium tax credits.',
+    'Medicaid Takeup Reform':
+      'Reduced-form scenario for projected changes in Medicaid participation.'
   };
 
   // Cache for loaded district data
@@ -174,7 +211,11 @@
 
       provisionImpacts = await response.json();
       provisionImpactsLoaded = true;
-      console.log('Loaded provision impacts for', Object.keys(provisionImpacts).length, 'districts');
+      console.log(
+        'Loaded provision impacts for',
+        Object.keys(provisionImpacts).length,
+        'districts'
+      );
     } catch (error) {
       console.error('Error loading provision impacts:', error);
       provisionImpacts = {};
@@ -186,12 +227,13 @@
   let showRelativeImpact = false; // false = absolute ($), true = relative (%)
 
   // Get provisions for selected district, separated by positive/negative
-  $: allProvisions = selectedDistrict && provisionImpacts[selectedDistrict]
-    ? provisionImpacts[selectedDistrict]
-    : [];
+  $: allProvisions =
+    selectedDistrict && provisionImpacts[selectedDistrict]
+      ? provisionImpacts[selectedDistrict]
+      : [];
 
-  $: positiveProvisions = allProvisions.filter(p => p.avgImpact > 0);
-  $: negativeProvisions = allProvisions.filter(p => p.avgImpact < 0);
+  $: positiveProvisions = allProvisions.filter((p) => p.avgImpact > 0);
+  $: negativeProvisions = allProvisions.filter((p) => p.avgImpact < 0);
 
   // Show top 3 of each when collapsed, all when expanded
   $: displayPositive = provisionExpanded ? positiveProvisions : positiveProvisions.slice(0, 3);
@@ -242,7 +284,6 @@
       districtDataCache[cacheKey] = data;
 
       console.log(`Loaded ${data.length} households for district ${district}`);
-
     } catch (error) {
       console.error('Error loading district data:', error);
       loadError = error.message;
@@ -315,23 +356,10 @@
   // Randomize to a different household
   function randomizeHousehold() {
     const currentData = selectedDistrict
-      ? data.filter(d => d['Congressional District'] === selectedDistrict)
+      ? data.filter((d) => d['Congressional District'] === selectedDistrict)
       : data;
 
-    if (currentData.length > 0) {
-      // Pick a random household (weighted by household weight)
-      const totalWeight = currentData.reduce((sum, d) => sum + (d['Household Weight'] || 1), 0);
-      let random = Math.random() * totalWeight;
-      let cumulative = 0;
-
-      for (const household of currentData) {
-        cumulative += household['Household Weight'] || 1;
-        if (random <= cumulative) {
-          selectedHousehold = household;
-          break;
-        }
-      }
-    }
+    selectedHousehold = getRandomWeightedHousehold(currentData);
   }
 
   // Parse URL params on load
@@ -380,7 +408,10 @@
   <title>Explore by District | Tax Reform Impact</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
 </svelte:head>
 
 <div class="explore-page">
@@ -389,7 +420,13 @@
     <div class="header-left">
       <a href=".." class="back-link">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-          <path d="M12.5 15L7.5 10L12.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path
+            d="M12.5 15L7.5 10L12.5 5"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
         Back to Story
       </a>
@@ -480,13 +517,13 @@
                     <button
                       class="toggle-btn"
                       class:active={!showRelativeImpact}
-                      on:click={() => showRelativeImpact = false}
-                    >$</button>
+                      on:click={() => (showRelativeImpact = false)}>$</button
+                    >
                     <button
                       class="toggle-btn"
                       class:active={showRelativeImpact}
-                      on:click={() => showRelativeImpact = true}
-                    >%</button>
+                      on:click={() => (showRelativeImpact = true)}>%</button
+                    >
                   </div>
                 </div>
 
@@ -509,7 +546,9 @@
                             {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
-                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                            <div class="provision-tooltip">
+                              {provisionDescriptions[provision.name]}
+                            </div>
                           {/if}
                         </div>
                       {/each}
@@ -536,7 +575,9 @@
                             {/if}
                           </span>
                           {#if provisionDescriptions[provision.name]}
-                            <div class="provision-tooltip">{provisionDescriptions[provision.name]}</div>
+                            <div class="provision-tooltip">
+                              {provisionDescriptions[provision.name]}
+                            </div>
                           {/if}
                         </div>
                       {/each}
@@ -548,7 +589,7 @@
                 {#if hasMoreProvisions}
                   <button
                     class="expand-btn"
-                    on:click={() => provisionExpanded = !provisionExpanded}
+                    on:click={() => (provisionExpanded = !provisionExpanded)}
                   >
                     {provisionExpanded ? 'Show less' : `Show all (${allProvisions.length})`}
                     <svg
@@ -557,22 +598,39 @@
                       viewBox="0 0 12 12"
                       class:rotated={provisionExpanded}
                     >
-                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+                      <path
+                        d="M3 4.5L6 7.5L9 4.5"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        fill="none"
+                        stroke-linecap="round"
+                      />
                     </svg>
                   </button>
                 {/if}
 
                 <p class="provision-note">
-                  {showRelativeImpact ? 'Avg. % change in net income' : 'Avg. $ impact per household'}
+                  {showRelativeImpact
+                    ? 'Avg. % change in net income'
+                    : 'Avg. $ impact per household'}
                 </p>
               </div>
             {/if}
           {:else}
             <div class="select-district-prompt">
               <div class="prompt-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
-                  <path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/>
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                  <path
+                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+                  />
                 </svg>
               </div>
               <h2>Select a Congressional District</h2>
@@ -590,10 +648,20 @@
       <div class="profile-modal" on:click|stopPropagation>
         <button class="close-btn" on:click={closeProfile}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path
+              d="M18 6L6 18M6 6L18 18"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
-        <HouseholdProfile household={selectedHousehold} onRandomize={randomizeHousehold} />
+        <HouseholdProfile
+          household={selectedHousehold}
+          {selectedDataset}
+          dataSource="district"
+          onRandomize={randomizeHousehold}
+        />
       </div>
     </div>
   {/if}
@@ -603,12 +671,16 @@
   :global(body) {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
     background: #f8fafc;
 
     /* Scatter plot colors - match nationwide styling */
     --scatter-positive: #319795; /* Teal for gains */
-    --scatter-negative: #6B7280; /* Gray for losses */
+    --scatter-negative: #6b7280; /* Gray for losses */
   }
 
   .explore-page {
@@ -888,7 +960,7 @@
   }
 
   .section-header.negative .section-icon {
-    color: #6B7280;
+    color: #6b7280;
   }
 
   .section-title {
@@ -904,7 +976,7 @@
   }
 
   .section-header.negative .section-title {
-    color: #6B7280;
+    color: #6b7280;
   }
 
   .provision-list {
@@ -988,7 +1060,7 @@
   }
 
   .provision-value.negative {
-    color: #6B7280;
+    color: #6b7280;
   }
 
   .expand-btn {
@@ -1082,7 +1154,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .error-state button {

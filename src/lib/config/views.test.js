@@ -1,40 +1,32 @@
-import { describe, it, expect } from 'vitest';
-import { HOUSEHOLD_COUNTS } from './views.js';
+import { describe, expect, it } from 'vitest';
+import { baseViews, introMethodology, scrollStates } from './views.js';
 
-describe('Precomputed Household Counts', () => {
-  it('should have reasonable household counts for all income groups', () => {
-    // Check lower-income
-    expect(HOUSEHOLD_COUNTS['lower-income']).toBe(43);
-    expect(HOUSEHOLD_COUNTS['lower-income']).toBeGreaterThan(0);
-    expect(HOUSEHOLD_COUNTS['lower-income']).toBeLessThan(100);
-    
-    // Check middle-income
-    expect(HOUSEHOLD_COUNTS['middle-income']).toBe(51);
-    expect(HOUSEHOLD_COUNTS['middle-income']).toBeGreaterThan(0);
-    expect(HOUSEHOLD_COUNTS['middle-income']).toBeLessThan(100);
-    
-    // Check upper-income
-    expect(HOUSEHOLD_COUNTS['upper-income']).toBe(12);
-    expect(HOUSEHOLD_COUNTS['upper-income']).toBeGreaterThan(0);
-    expect(HOUSEHOLD_COUNTS['upper-income']).toBeLessThan(50);
-    
-    // Check highest-income
-    expect(HOUSEHOLD_COUNTS['highest-income']).toBe(0.8);
-    expect(HOUSEHOLD_COUNTS['highest-income']).toBeGreaterThan(0);
-    expect(HOUSEHOLD_COUNTS['highest-income']).toBeLessThan(5);
+describe('household story views', () => {
+  it('discloses the Microcosm record count and resource measure', () => {
+    const intro = baseViews.find((view) => view.id === 'intro');
+
+    expect(intro.groupText).toContain('57,240 modeled records');
+    expect(intro.groupText).toContain('124.6 million US households');
+    expect(intro.groupText).toContain('$546.1 billion');
+    expect(intro.groupText).toContain('$4,384 per household');
+    expect(introMethodology).toContain('Household resources equal cash net income plus Medicaid');
+    expect(introMethodology).toContain('reduced-form participation scenarios');
   });
-  
-  it('should sum to approximately total US households', () => {
-    const total = Object.values(HOUSEHOLD_COUNTS).reduce((sum, count) => sum + count, 0);
-    // US has roughly 130 million households
-    expect(total).toBeGreaterThan(90);
-    expect(total).toBeLessThan(150);
+
+  it('partitions nonnegative market income at the displayed boundaries', () => {
+    const byId = Object.fromEntries(baseViews.map((view) => [view.id, view]));
+
+    expect(byId['lower-income'].view.filter({ 'Market Income': 49_999 })).toBe(true);
+    expect(byId['lower-income'].view.filter({ 'Market Income': 50_000 })).toBe(false);
+    expect(byId['middle-income'].view.filter({ 'Market Income': 50_000 })).toBe(true);
+    expect(byId['middle-income'].view.filter({ 'Market Income': 200_000 })).toBe(false);
+    expect(byId['upper-income'].view.filter({ 'Market Income': 200_000 })).toBe(true);
+    expect(byId['upper-income'].view.filter({ 'Market Income': 1_000_000 })).toBe(false);
+    expect(byId['highest-income'].view.filter({ 'Market Income': 1_000_000 })).toBe(true);
   });
-  
-  it('should have appropriate distribution across income groups', () => {
-    // Middle income is actually the largest group in the US
-    expect(HOUSEHOLD_COUNTS['middle-income']).toBeGreaterThan(HOUSEHOLD_COUNTS['lower-income']);
-    expect(HOUSEHOLD_COUNTS['lower-income']).toBeGreaterThan(HOUSEHOLD_COUNTS['upper-income']);
-    expect(HOUSEHOLD_COUNTS['upper-income']).toBeGreaterThan(HOUSEHOLD_COUNTS['highest-income']);
+
+  it('generates one group state per story view', () => {
+    expect(scrollStates).toHaveLength(baseViews.length);
+    expect(scrollStates.every((state) => state.viewType === 'group')).toBe(true);
   });
 });

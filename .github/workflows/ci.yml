@@ -32,6 +32,9 @@ jobs:
     
     - name: Run tests
       run: npm test -- --run
+
+    - name: Validate Microcosm data contract
+      run: npm run validate:data
     
     - name: Run tests with coverage
       if: matrix.node-version == '20.x'
