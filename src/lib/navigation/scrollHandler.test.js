@@ -6,7 +6,8 @@ import {
   isTransitioning,
   currentInterpolationT,
   startTransition,
-  navigateToSection
+  navigateToSection,
+  getRandomWeightedHousehold
 } from './scrollHandler.js';
 
 describe('scrollHandler', () => {
@@ -20,7 +21,7 @@ describe('scrollHandler', () => {
     // Mock requestAnimationFrame and cancelAnimationFrame
     vi.useFakeTimers();
     let frameId = 0;
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
       frameId++;
       setTimeout(() => cb(performance.now()), 16);
       return frameId;
@@ -147,6 +148,24 @@ describe('scrollHandler', () => {
 
       navigateToSection('highest-income', mockScrollStates);
       expect(get(currentStateIndex)).toBe(4);
+    });
+  });
+
+  describe('getRandomWeightedHousehold', () => {
+    const light = { id: 'light', 'Household Weight': 1 };
+    const heavy = { id: 'heavy', 'Household Weight': 99 };
+
+    it('uses canonical weights to assign random thresholds', () => {
+      expect(getRandomWeightedHousehold([light, heavy], () => 0.009)).toBe(light);
+      expect(getRandomWeightedHousehold([light, heavy], () => 0.01)).toBe(heavy);
+      expect(getRandomWeightedHousehold([light, heavy], () => 0.999)).toBe(heavy);
+    });
+
+    it('does not select zero-weight rows', () => {
+      const zero = { id: 'zero', 'Household Weight': 0 };
+
+      expect(getRandomWeightedHousehold([zero, heavy], () => 0)).toBe(heavy);
+      expect(getRandomWeightedHousehold([zero], () => 0.5)).toBeNull();
     });
   });
 });

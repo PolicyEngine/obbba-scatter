@@ -4,7 +4,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { tweened } from 'svelte/motion';
   import { cubicOut } from 'svelte/easing';
-  
+  import { getBaselineLabel, getResultMethodology } from './profileContext.js';
+
   // Custom interpolation function for train station board effect
   function trainStationInterpolate(from, to) {
     return (t) => {
@@ -18,73 +19,82 @@
       return from + (to - from) * t;
     };
   }
-  
+
   export let household = null;
   export let selectedDataset = 'tcja-expiration';
+  export let dataSource = 'national-microcosm';
   export let currentState = null;
   export let sectionIndex = 0;
   export let onRandomize = () => {};
-  
+
   let showHouseholdDetails = false;
   let showProvisionDetails = false;
-  
+  let relativeImpactAvailable = true;
+
   // Animated values with train station board effect
-  const householdId = tweened(0, { 
-    duration: 600, 
+  const householdId = tweened(0, {
+    duration: 600,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  const marketIncome = tweened(0, { 
-    duration: 700, 
+  const marketIncome = tweened(0, {
+    duration: 700,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  const baselineNetIncome = tweened(0, { 
-    duration: 750, 
+  const baselineNetIncome = tweened(0, {
+    duration: 750,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  const obbbaNetIncome = tweened(0, { 
-    duration: 800, 
+  const obbbaNetIncome = tweened(0, {
+    duration: 800,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  const absoluteImpact = tweened(0, { 
-    duration: 850, 
+  const absoluteImpact = tweened(0, {
+    duration: 850,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  const relativeImpact = tweened(0, { 
-    duration: 900, 
+  const relativeImpact = tweened(0, {
+    duration: 900,
     easing: cubicOut,
     interpolate: trainStationInterpolate
   });
-  
+
   let previousHouseholdId = null;
   let previousDataset = null;
-  
+
   // Update animated values when household changes or dataset changes
-  $: if (household && (household.id !== previousHouseholdId || selectedDataset !== previousDataset)) {
+  $: if (
+    household &&
+    (household.id !== previousHouseholdId || selectedDataset !== previousDataset)
+  ) {
     console.log('HouseholdProfile updating:', {
       householdId: household.id,
       dataset: selectedDataset,
-      netChange: household['Total change in net income'] || household['Change in Household Net Income'],
+      netChange:
+        household['Total change in net income'] || household['Change in Household Net Income'],
       percentChange: household['Percentage change in net income'],
       baselineNetIncome: household['Baseline Net Income'],
-      marketIncome: household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'],
-      allKeys: Object.keys(household).filter(k => k.includes('Income') || k.includes('Net'))
+      marketIncome:
+        household['Market Income'] ??
+        household['Gross Income'] ??
+        household['Adjusted Gross Income'],
+      allKeys: Object.keys(household).filter((k) => k.includes('Income') || k.includes('Net'))
     });
-    
+
     // Don't reset expanded states when just shuffling households
     // Only reset when switching datasets
     if (selectedDataset !== previousDataset) {
       showHouseholdDetails = false;
       showProvisionDetails = false;
     }
-    
+
     previousHouseholdId = household.id;
     previousDataset = selectedDataset;
-    
+
     // If this is the first household, start from random values for dramatic effect
     if ($householdId === 0) {
       householdId.set(Math.random() * 40000, { duration: 0 });
@@ -94,46 +104,106 @@
       absoluteImpact.set((Math.random() - 0.5) * 20000, { duration: 0 });
       relativeImpact.set((Math.random() - 0.5) * 20, { duration: 0 });
     }
-    
+
     // Animate to actual values
     householdId.set(parseInt(household.id) || 0);
-    marketIncome.set(household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0);
+    marketIncome.set(
+      household['Market Income'] ??
+        household['Gross Income'] ??
+        household['Adjusted Gross Income'] ??
+        0
+    );
     baselineNetIncome.set(household['Baseline Net Income'] || 0);
-    obbbaNetIncome.set((household['Baseline Net Income'] || 0) + (household['Total change in net income'] || household['Change in Household Net Income'] || 0));
-    absoluteImpact.set(household['Total change in net income'] || household['Change in Household Net Income'] || 0);
-    relativeImpact.set(household['Percentage change in net income'] || 0);
+    obbbaNetIncome.set(
+      (household['Baseline Net Income'] || 0) +
+        (household['Total change in net income'] ||
+          household['Change in Household Net Income'] ||
+          0)
+    );
+    absoluteImpact.set(
+      household['Total change in net income'] || household['Change in Household Net Income'] || 0
+    );
+    const rawRelativeImpact = household['Percentage change in net income'];
+    relativeImpactAvailable =
+      rawRelativeImpact !== null &&
+      rawRelativeImpact !== undefined &&
+      rawRelativeImpact !== '' &&
+      Number.isFinite(Number(rawRelativeImpact));
+    relativeImpact.set(relativeImpactAvailable ? Number(rawRelativeImpact) : 0);
   }
-  
+
   // State abbreviation to full name mapping
   const stateNames = {
-    'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
-    'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
-    'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
-    'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
-    'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
-    'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
-    'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
-    'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
-    'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
-    'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
+    AL: 'Alabama',
+    AK: 'Alaska',
+    AZ: 'Arizona',
+    AR: 'Arkansas',
+    CA: 'California',
+    CO: 'Colorado',
+    CT: 'Connecticut',
+    DE: 'Delaware',
+    FL: 'Florida',
+    GA: 'Georgia',
+    HI: 'Hawaii',
+    ID: 'Idaho',
+    IL: 'Illinois',
+    IN: 'Indiana',
+    IA: 'Iowa',
+    KS: 'Kansas',
+    KY: 'Kentucky',
+    LA: 'Louisiana',
+    ME: 'Maine',
+    MD: 'Maryland',
+    MA: 'Massachusetts',
+    MI: 'Michigan',
+    MN: 'Minnesota',
+    MS: 'Mississippi',
+    MO: 'Missouri',
+    MT: 'Montana',
+    NE: 'Nebraska',
+    NV: 'Nevada',
+    NH: 'New Hampshire',
+    NJ: 'New Jersey',
+    NM: 'New Mexico',
+    NY: 'New York',
+    NC: 'North Carolina',
+    ND: 'North Dakota',
+    OH: 'Ohio',
+    OK: 'Oklahoma',
+    OR: 'Oregon',
+    PA: 'Pennsylvania',
+    RI: 'Rhode Island',
+    SC: 'South Carolina',
+    SD: 'South Dakota',
+    TN: 'Tennessee',
+    TX: 'Texas',
+    UT: 'Utah',
+    VT: 'Vermont',
+    VA: 'Virginia',
+    WA: 'Washington',
+    WV: 'West Virginia',
+    WI: 'Wisconsin',
+    WY: 'Wyoming'
   };
-  
+
   // Get ages of all household members
   function getHouseholdAges(household) {
     if (!household) return '';
     const ages = [];
-    
+
     // Add head age
     const headAge = household['Age of Head'] || household['Age'];
     if (headAge) ages.push(Math.round(headAge));
-    
+
     // Add spouse age if married
     if (household['Is Married'] && household['Age of Spouse']) {
       ages.push(Math.round(household['Age of Spouse']));
     }
-    
+
     // Add individual dependent ages
-    const numDependents = Math.round(household['Number of Dependents'] || household['Dependents'] || 0);
+    const numDependents = Math.round(
+      household['Number of Dependents'] || household['Dependents'] || 0
+    );
     if (numDependents > 0) {
       // Check for individual dependent ages
       for (let i = 1; i <= numDependents; i++) {
@@ -143,20 +213,28 @@
         }
       }
     }
-    
+
     // Sort ages in descending order
     ages.sort((a, b) => b - a);
-    
+
     return ages.join(', ');
   }
-  
+
   // Get all non-zero fields from household data
   function getNonZeroFields(household) {
     if (!household) return [];
-    
-    const excludeFields = ['id', 'isAnnotated', 'sectionIndex', 'isHighlighted', 'highlightGroup', 'stateIndex', 'householdId'];
+
+    const excludeFields = [
+      'id',
+      'isAnnotated',
+      'sectionIndex',
+      'isHighlighted',
+      'highlightGroup',
+      'stateIndex',
+      'householdId'
+    ];
     const fields = [];
-    
+
     Object.entries(household).forEach(([key, value]) => {
       if (!excludeFields.includes(key) && value !== 0 && value !== '0' && value) {
         // Group provisions by reform name
@@ -169,140 +247,203 @@
         }
       }
     });
-    
+
     // Sort provisions by absolute value of net income impact
-    const provisions = fields.filter(f => f.type === 'provision' && f.key.includes('net income'));
+    const provisions = fields.filter((f) => f.type === 'provision' && f.key.includes('net income'));
     const sortedProvisions = provisions.sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
-    
+
     // Return organized data
     return {
-      basic: fields.filter(f => f.type === 'basic'),
+      basic: fields.filter((f) => f.type === 'basic'),
       provisions: sortedProvisions
     };
   }
-  
+
   // Get provision breakdown for a household
   function getProvisionBreakdown(household) {
     if (!household) return [];
 
-    // Provisions with both national and district column name variants
+    // Forward stacking order used by the paper and the exported Microcosm data.
     const provisions = [
       {
-        name: 'Rate adjustment',
+        name: 'Tax rates',
         keys: ['Change in net income after Tax Rate Reform'],
-        description: 'Permanently extends TCJA individual tax rates, including the 37% top rate. Rates are 10%, 12%, 22%, 24%, 32%, 35%, and 37%.'
+        description:
+          'Continues the TCJA individual income tax rates instead of allowing them to expire.'
       },
       {
-        name: 'Standard deduction increase',
+        name: 'Standard deduction',
         keys: ['Change in net income after Standard Deduction Reform'],
-        description: 'Increases the standard deduction by $750 for single filers and $1,500 for married filing jointly, building on the TCJA amounts.'
+        description:
+          "Continues the larger TCJA standard deduction and applies the Act's additional increase."
       },
       {
-        name: 'Exemption repeal',
+        name: 'Personal exemption (continued suspension)',
         keys: ['Change in net income after Exemption Reform'],
-        description: 'Continues TCJA\'s repeal of personal exemptions, which were $4,050 per person before 2018.'
+        description:
+          'Continues the TCJA suspension of personal exemptions instead of restoring them.'
       },
       {
-        name: 'Child tax credit SSN requirement',
-        keys: ['Change in net income after Child tax credit social security number requirement', 'Change in net income after CTC SSN Requirement'],
-        description: 'Requires work-eligible SSNs for both the child and at least one parent claiming the credit. Affects mixed-status families.'
+        name: 'CTC SSN requirement',
+        keys: [
+          'Change in net income after CTC SSN Requirement',
+          'Change in net income after Child tax credit social security number requirement'
+        ],
+        description:
+          "Applies the Act's Social Security number requirements to the child tax credit."
       },
       {
-        name: 'Child tax credit expansion',
-        keys: ['Change in net income after Child tax credit expansion', 'Change in net income after CTC Expansion'],
-        description: 'Increases child tax credit from $2,000 to $2,200 per child, with inflation indexing starting in 2026. Refundable portion remains at $1,700.'
+        name: 'CTC expansion',
+        keys: [
+          'Change in net income after CTC Expansion',
+          'Change in net income after Child tax credit expansion'
+        ],
+        description:
+          'Raises and indexes the child tax credit while continuing the TCJA credit structure.'
       },
       {
-        name: 'Qualified Business Income Deduction',
-        keys: ['Change in net income after Qualified business interest deduction reform', 'Change in net income after QBI Deduction Reform'],
-        description: 'Makes permanent the 20% deduction for pass-through entities. Expands phase-in limits to $75,000 ($150,000 joint) with $400 minimum deduction.'
+        name: 'CDCC expansion',
+        keys: [
+          'Change in net income after CDCC Reform',
+          'Change in net income after Child and dependent care credit reform'
+        ],
+        description: 'Expands the child and dependent care credit rate for eligible expenses.'
       },
       {
-        name: 'Alternative minimum tax reform',
-        keys: ['Change in net income after Alternative minimum tax reform', 'Change in net income after AMT Reform'],
-        description: 'AMT exemption: $88,100 (single)/$137,000 (joint) for 2025. Starting 2026: phaseout at $500K/$1M with 50% phaseout rate.'
+        name: 'QBI deduction',
+        keys: [
+          'Change in net income after QBI Deduction Reform',
+          'Change in net income after Qualified business interest deduction reform'
+        ],
+        description:
+          'Continues and modifies the deduction for qualified pass-through business income.'
       },
       {
-        name: 'Miscellaneous deduction reform',
-        keys: ['Change in net income after Miscellaneous deduction reform', 'Change in net income after Miscellaneous Reform'],
-        description: 'Continues suspension of miscellaneous itemized deductions subject to 2% AGI floor, including unreimbursed employee expenses.'
+        name: 'AMT',
+        keys: [
+          'Change in net income after AMT Reform',
+          'Change in net income after Alternative minimum tax reform'
+        ],
+        description:
+          'Continues and modifies the higher alternative minimum tax exemption and phaseout thresholds.'
       },
       {
-        name: 'Charitable/other itemized deductions',
-        keys: ['Change in net income after Charitable deductions reform', 'Change in net income after Other Itemized Deductions Reform'],
-        description: 'Charitable deduction for non-itemizers ($2,000/$1,000) and mortgage interest cap ($750K).'
+        name: 'Miscellaneous deductions',
+        keys: [
+          'Change in net income after Miscellaneous Reform',
+          'Change in net income after Miscellaneous deduction reform'
+        ],
+        description:
+          'Continues the suspension of miscellaneous itemized deductions subject to the 2% AGI floor.'
       },
       {
         name: 'Casualty loss deduction repeal',
         keys: ['Change in net income after Casualty loss deduction repeal'],
-        description: 'Continues limitation of casualty loss deductions to federally declared disaster areas only.'
+        description: 'Continues limits on personal casualty-loss deductions.'
       },
       {
-        name: 'Pease repeal',
-        keys: ['Change in net income after Pease repeal'],
-        description: 'Maintains repeal of Pease limitation that previously reduced itemized deductions for high-income taxpayers by 3% of excess AGI.'
+        name: 'Other itemized deductions',
+        keys: [
+          'Change in net income after Other Itemized Deductions Reform',
+          'Change in net income after Charitable deductions reform'
+        ],
+        description: "Applies the Act's rules for charitable and mortgage-interest deductions."
       },
       {
-        name: 'Limitation on itemized deductions',
-        keys: ['Change in net income after Limitation on itemized deductions reform', 'Change in net income after Limitation on Itemized Deductions Reform'],
-        description: 'New limitation caps itemized deduction benefit at 35% of taxable income for taxpayers in 37% bracket.'
+        name: 'Itemized deduction limitation',
+        keys: [
+          'Change in net income after Limitation on Itemized Deductions Reform',
+          'Change in net income after Limitation on itemized deductions reform'
+        ],
+        description:
+          'Limits the value of itemized deductions for taxpayers in the top income-tax bracket.'
       },
       {
-        name: 'Estate tax reform',
-        keys: ['Change in net income after Estate tax reform', 'Change in net income after Estate Tax Reform'],
-        description: 'Increases estate and gift tax exemption to $15 million per person ($30 million per couple), indexed for inflation.'
+        name: 'Estate tax',
+        keys: [
+          'Change in net income after Estate Tax Reform',
+          'Change in net income after Estate tax reform'
+        ],
+        description:
+          'Raises and indexes the estate and gift tax exemption. Survey records contain no decedents, so this is a structural zero here.'
       },
       {
-        name: 'Senior deduction',
-        keys: ['Change in net income after New senior deduction', 'Change in net income after Senior Deduction'],
-        description: 'New $6,000 deduction for taxpayers age 65+, available 2025-2028. Reduces taxable income regardless of itemization.'
+        name: 'SALT cap',
+        keys: [
+          'Change in net income after SALT Cap Reform',
+          'Change in net income after Cap on state and local tax deduction'
+        ],
+        description:
+          'Raises the cap on state and local tax deductions, with an income-based phaseout.'
       },
       {
         name: 'Tip exemption',
-        keys: ['Change in net income after Tip exemption', 'Change in net income after Tip Income Exemption'],
-        description: 'Deduction up to $25,000 for tip income, 2025-2028. Tips remain reportable income but receive federal tax deduction.'
+        keys: [
+          'Change in net income after Tip Income Exemption',
+          'Change in net income after Tip exemption'
+        ],
+        description: 'Creates a temporary deduction for qualifying tip income.'
       },
       {
         name: 'Overtime exemption',
-        keys: ['Change in net income after Overtime exemption', 'Change in net income after Overtime Exemption'],
-        description: 'Deduction for overtime premium pay (the extra 50% only, not base wage) up to $12,500 for individuals or $25,000 for joint filers, 2025-2028.'
+        keys: [
+          'Change in net income after Overtime Exemption',
+          'Change in net income after Overtime exemption'
+        ],
+        description: 'Creates a temporary deduction for qualifying overtime premium pay.'
+      },
+      {
+        name: 'Senior deduction',
+        keys: [
+          'Change in net income after Senior Deduction',
+          'Change in net income after New senior deduction'
+        ],
+        description:
+          'Creates a temporary additional deduction for taxpayers age 65 and older, subject to an income phaseout.'
       },
       {
         name: 'Auto loan interest deduction',
-        keys: ['Change in net income after Auto loan interest deduction', 'Change in net income after Auto Loan Interest'],
-        description: 'Deduction up to $10,000 for auto loan interest, 2025-2028. Applies to qualifying vehicle loans.'
+        keys: [
+          'Change in net income after Auto Loan Interest',
+          'Change in net income after Auto loan interest deduction'
+        ],
+        description: 'Creates a temporary deduction for interest on qualifying vehicle loans.'
       },
       {
-        name: 'SALT cap reform',
-        keys: ['Change in net income after Cap on state and local tax deduction', 'Change in net income after SALT Cap Reform'],
-        description: 'SALT deduction cap increases to $40,000 for taxpayers earning under $500,000, indexed annually. Reverts to $10,000 in 2030.'
+        name: 'SNAP participation',
+        keys: [
+          'Change in net income after SNAP Takeup Reform',
+          'Change in net income after SNAP reform'
+        ],
+        description:
+          'A seeded, reduced-form scenario lowers SNAP participation to reflect projected enrollment effects; it does not identify specific eligibility losses.'
       },
       {
-        name: 'Child and Dependent Care Credit',
-        keys: ['Change in net income after Child and dependent care credit reform', 'Change in net income after CDCC Reform'],
-        description: 'Modifies child and dependent care credit structure and income phaseouts. Credit remains nonrefundable.'
+        name: 'ACA participation',
+        keys: [
+          'Change in net income after ACA Takeup Reform',
+          'Change in net income after Extension of ACA enhanced subsidies'
+        ],
+        description:
+          'A seeded, reduced-form scenario lowers marketplace participation and removes enrollee-assigned premium tax credits at program cost.'
       },
       {
-        name: 'ACA premium tax credit',
-        keys: ['Change in net income after Extension of ACA enhanced subsidies', 'Change in net income after ACA Takeup Reform'],
-        description: 'Changes in ACA premium tax credit eligibility based on CBO projections for subsidy participation rates.'
-      },
-      {
-        name: 'SNAP eligibility',
-        keys: ['Change in net income after SNAP reform', 'Change in net income after SNAP Takeup Reform'],
-        description: 'Changes in SNAP (food stamp) eligibility based on projected participation rate changes.'
-      },
-      {
-        name: 'Medicaid eligibility',
-        keys: ['Change in net income after Medicaid reform', 'Change in net income after Medicaid Takeup Reform'],
-        description: 'Changes in Medicaid eligibility based on projected participation rate changes.'
+        name: 'Medicaid participation',
+        keys: [
+          'Change in net income after Medicaid Takeup Reform',
+          'Change in net income after Medicaid reform'
+        ],
+        description:
+          "A seeded, reduced-form scenario lowers Medicaid participation toward the paper's state-level ceiling; it does not identify specific eligibility losses."
       }
     ];
 
     return provisions
       .map((provision, index) => {
         // Find the first matching key that exists in household data
-        const matchingKey = provision.keys.find(key => household[key] !== undefined && household[key] !== 0);
+        const matchingKey = provision.keys.find(
+          (key) => household[key] !== undefined && household[key] !== 0
+        );
         const value = matchingKey ? household[matchingKey] : 0;
 
         // Extract the provision suffix from the matching key
@@ -314,36 +455,50 @@
           index: index,
           description: provision.description,
           // Automatically generate the federal, state, and benefits keys
-          federalChange: household[`Change in federal tax after ${suffix}`] || household[`Change in federal tax liability after ${suffix}`] || 0,
-          stateChange: household[`Change in state tax after ${suffix}`] || household[`Change in state tax liability after ${suffix}`] || 0,
+          federalChange:
+            household[`Change in federal tax after ${suffix}`] ||
+            household[`Change in federal tax liability after ${suffix}`] ||
+            0,
+          stateChange:
+            household[`Change in state tax after ${suffix}`] ||
+            household[`Change in state tax liability after ${suffix}`] ||
+            0,
           benefitsChange: household[`Change in benefits after ${suffix}`] || 0
         };
       })
-      .filter(p => Math.abs(p.value) > 0.01);
+      .filter((p) => Math.abs(p.value) > 0.01);
   }
-  
+
   $: provisionBreakdown = household ? getProvisionBreakdown(household) : [];
-  
+
   // Calculate total federal, state, and benefits changes
   // Support both national (with "liability") and district (without) column names
-  $: totalFederalChange = household ? (household['Total change in federal tax liability'] || household['Total change in federal tax'] || 0) : 0;
-  $: totalStateChange = household ? (household['Total change in state tax liability'] || household['Total change in state tax'] || 0) : 0;
-  $: totalBenefitsChange = household ? (household['Total change in benefits'] || 0) : 0;
-  
+  $: totalFederalChange = household
+    ? household['Total change in federal tax liability'] ||
+      household['Total change in federal tax'] ||
+      0
+    : 0;
+  $: totalStateChange = household
+    ? household['Total change in state tax liability'] ||
+      household['Total change in state tax'] ||
+      0
+    : 0;
+  $: totalBenefitsChange = household ? household['Total change in benefits'] || 0 : 0;
+
   // Get income sources breakdown
   function getIncomeSources(household) {
     if (!household) return [];
-    
+
     // Get individual income components
     const employmentIncome = household['Employment Income'] || 0;
     const tipIncome = household['Tip Income'] || 0;
     const overtimeIncome = household['Overtime Income'] || 0;
-    
+
     // Calculate wages and salaries (employment minus tips and overtime)
     const wagesAndSalaries = employmentIncome - tipIncome - overtimeIncome;
-    
+
     const sources = [];
-    
+
     // Only add wages and salaries if employment income exists
     if (Math.abs(employmentIncome) > 0.01) {
       if (Math.abs(wagesAndSalaries) > 0.01) {
@@ -356,7 +511,7 @@
         sources.push({ name: 'Overtime income', value: overtimeIncome });
       }
     }
-    
+
     // Add other income sources
     sources.push(
       { name: 'Self-employment income', value: household['Self-Employment Income'] || 0 },
@@ -366,31 +521,39 @@
       { name: 'Rental income', value: household['Rental Income'] || 0 },
       { name: 'Farm income', value: household['Farm Income'] || 0 },
       { name: 'Pension income', value: household['Taxable Pension Income'] || 0 },
-      { name: 'Retirement distributions', value: household['Taxable Retirement Distributions'] || 0 },
+      {
+        name: 'Retirement distributions',
+        value: household['Taxable Retirement Distributions'] || 0
+      },
       { name: 'Social Security', value: household['Taxable Social Security'] || 0 },
-      { name: 'Unemployment compensation', value: household['Taxable Unemployment Compensation'] || 0 }
+      {
+        name: 'Unemployment compensation',
+        value: household['Taxable Unemployment Compensation'] || 0
+      }
     );
-    
+
     // Calculate total of itemized sources (excluding misc income)
     const itemizedTotal = sources.reduce((sum, s) => sum + (s.value || 0), 0);
-    const marketIncome = household['Market Income'] || household['Gross Income'] || household['Adjusted Gross Income'] || 0;
+    const marketIncome =
+      household['Market Income'] ??
+      household['Gross Income'] ??
+      household['Adjusted Gross Income'] ??
+      0;
     const miscIncome = household['Miscellaneous income'] || 0;
     const difference = marketIncome - itemizedTotal - miscIncome;
-    
+
     // Combine miscellaneous income and any unaccounted difference as "Other income"
-    // This includes miscellaneous income plus any GI Bill assistance, illicit income, 
+    // This includes miscellaneous income plus any GI Bill assistance, illicit income,
     // or other sources not separately reported in the data
     const otherIncome = miscIncome + difference;
     if (Math.abs(otherIncome) > 0.01) {
       sources.push({ name: 'Other income', value: otherIncome });
     }
-    
+
     // Filter out zero values and sort by amount descending (positive first, then negative)
-    return sources
-      .filter(s => Math.abs(s.value) > 0.01)
-      .sort((a, b) => b.value - a.value);
+    return sources.filter((s) => Math.abs(s.value) > 0.01).sort((a, b) => b.value - a.value);
   }
-  
+
   $: incomeSources = household ? getIncomeSources(household) : [];
 </script>
 
@@ -400,16 +563,16 @@
       Household #{Math.round($householdId)}
       <div class="header-buttons">
         <span class="random-indicator">Random</span>
-        <button 
-          class="action-button random-button" 
+        <button
+          class="action-button random-button"
           on:click|preventDefault|stopPropagation={(e) => {
             // Prevent any default scroll behavior
             e.preventDefault();
             e.stopPropagation();
-            
+
             // Blur the button to prevent focus-related scrolling
             e.currentTarget.blur({ preventScroll: true });
-            
+
             // Call the randomize function
             onRandomize();
           }}
@@ -417,8 +580,8 @@
         >
           🔀
         </button>
-        <button 
-          class="action-button link-button" 
+        <button
+          class="action-button link-button"
           on:click={(e) => copyHouseholdUrl(household, selectedDataset, currentState, e)}
           title="Copy link to this household"
         >
@@ -426,7 +589,7 @@
         </button>
       </div>
     </h3>
-    
+
     <!-- Household Attributes Section -->
     <div class="household-section">
       <div class="household-basics">
@@ -456,16 +619,16 @@
             {/if}
           </span>
         </div>
-        <button 
-          class="expand-button" 
-          on:click={() => showHouseholdDetails = !showHouseholdDetails}
+        <button
+          class="expand-button"
+          on:click={() => (showHouseholdDetails = !showHouseholdDetails)}
           title="{showHouseholdDetails ? 'Hide' : 'Show'} more household details"
         >
           <span class="expand-icon">{showHouseholdDetails ? '−' : '+'}</span>
           {showHouseholdDetails ? 'Show less' : 'Show more'}
         </button>
       </div>
-      
+
       {#if showHouseholdDetails}
         <div class="expandable-details">
           <div class="detail-item">
@@ -474,7 +637,7 @@
           </div>
           {#if household['Baseline Net Income']}
             <div class="detail-item">
-              <span class="label">Baseline net income:</span>
+              <span class="label">Baseline household resources:</span>
               <span class="value">{formatCurrency(household['Baseline Net Income'])}</span>
             </div>
           {/if}
@@ -499,39 +662,55 @@
         </div>
       {/if}
     </div>
-    
+
     <!-- OBBBA Impact Section -->
     <div class="impact-section">
       <h4>OBBBA impact</h4>
       <div class="impact-details">
         <div class="detail-item">
-          <span class="label">Net income under TCJA {selectedDataset === 'tcja-expiration' ? 'expiration' : 'extension'}:</span>
+          <span class="label">Household resources under {getBaselineLabel(selectedDataset)}:</span>
           <span class="value">{formatCurrency($baselineNetIncome)}</span>
         </div>
         <div class="detail-item">
-          <span class="label">Net income under OBBBA:</span>
+          <span class="label">Household resources under OBBBA:</span>
           <span class="value">{formatCurrency($obbbaNetIncome)}</span>
         </div>
         <div class="detail-item">
-          <span class="label">OBBBA absolute impact:</span>
-          <span class="value impact value-with-breakdown" class:pos={$absoluteImpact > 0} class:neg={$absoluteImpact < 0}>
+          <span class="label">Change in household resources:</span>
+          <span
+            class="value impact value-with-breakdown"
+            class:pos={$absoluteImpact > 0}
+            class:neg={$absoluteImpact < 0}
+          >
             {formatDollarChange($absoluteImpact)}
             <div class="breakdown-tooltip">
               <div class="breakdown-item">
                 <span class="breakdown-label">Federal tax:</span>
-                <span class="breakdown-value" class:pos={totalFederalChange < 0} class:neg={totalFederalChange > 0}>
+                <span
+                  class="breakdown-value"
+                  class:pos={totalFederalChange < 0}
+                  class:neg={totalFederalChange > 0}
+                >
                   {formatDollarChange(-totalFederalChange)}
                 </span>
               </div>
               <div class="breakdown-item">
                 <span class="breakdown-label">State tax:</span>
-                <span class="breakdown-value" class:pos={totalStateChange < 0} class:neg={totalStateChange > 0}>
+                <span
+                  class="breakdown-value"
+                  class:pos={totalStateChange < 0}
+                  class:neg={totalStateChange > 0}
+                >
                   {formatDollarChange(-totalStateChange)}
                 </span>
               </div>
               <div class="breakdown-item">
-                <span class="breakdown-label">Benefits:</span>
-                <span class="breakdown-value" class:pos={totalBenefitsChange > 0} class:neg={totalBenefitsChange < 0}>
+                <span class="breakdown-label">Cash and health benefits:</span>
+                <span
+                  class="breakdown-value"
+                  class:pos={totalBenefitsChange > 0}
+                  class:neg={totalBenefitsChange < 0}
+                >
                   {formatDollarChange(totalBenefitsChange)}
                 </span>
               </div>
@@ -539,14 +718,18 @@
           </span>
         </div>
         <div class="detail-item">
-          <span class="label">OBBBA relative impact:</span>
-          <span class="value impact" class:pos={$relativeImpact > 0} class:neg={$relativeImpact < 0}>
-            {formatPercentage($relativeImpact)}
+          <span class="label">Relative change:</span>
+          <span
+            class="value impact"
+            class:pos={$relativeImpact > 0}
+            class:neg={$relativeImpact < 0}
+          >
+            {relativeImpactAvailable ? formatPercentage($relativeImpact) : 'N/A'}
           </span>
         </div>
-        <button 
-          class="expand-button" 
-          on:click={() => showProvisionDetails = !showProvisionDetails}
+        <button
+          class="expand-button"
+          on:click={() => (showProvisionDetails = !showProvisionDetails)}
           title="{showProvisionDetails ? 'Hide' : 'Show'} provision breakdown"
         >
           <span class="expand-icon">{showProvisionDetails ? '−' : '+'}</span>
@@ -554,47 +737,64 @@
         </button>
       </div>
     </div>
-    
-      <!-- Provision Details (Expandable) -->
-      {#if showProvisionDetails}
-        <div class="expandable-details provision-details">
-          {#if provisionBreakdown.length > 0}
-            {#each provisionBreakdown as provision}
-              <div class="detail-item provision-item">
-                <span class="label provision-label">
-                  {provision.name}
-                </span>
-                <span class="value impact value-with-breakdown" class:pos={provision.value > 0} class:neg={provision.value < 0}>
-                  {formatDollarChange(provision.value)}
-                  <div class="breakdown-tooltip">
-                    <div class="breakdown-item">
-                      <span class="breakdown-label">Federal tax:</span>
-                      <span class="breakdown-value" class:pos={provision.federalChange < 0} class:neg={provision.federalChange > 0}>
-                        {formatDollarChange(-provision.federalChange)}
-                      </span>
-                    </div>
-                    <div class="breakdown-item">
-                      <span class="breakdown-label">State tax:</span>
-                      <span class="breakdown-value" class:pos={provision.stateChange < 0} class:neg={provision.stateChange > 0}>
-                        {formatDollarChange(-provision.stateChange)}
-                      </span>
-                    </div>
-                    <div class="breakdown-item">
-                      <span class="breakdown-label">Benefits:</span>
-                      <span class="breakdown-value" class:pos={provision.benefitsChange > 0} class:neg={provision.benefitsChange < 0}>
-                        {formatDollarChange(provision.benefitsChange)}
-                      </span>
-                    </div>
+
+    <!-- Provision Details (Expandable) -->
+    {#if showProvisionDetails}
+      <div class="expandable-details provision-details">
+        {#if provisionBreakdown.length > 0}
+          {#each provisionBreakdown as provision}
+            <div class="detail-item provision-item">
+              <span class="label provision-label">
+                {provision.name}
+              </span>
+              <span
+                class="value impact value-with-breakdown"
+                class:pos={provision.value > 0}
+                class:neg={provision.value < 0}
+              >
+                {formatDollarChange(provision.value)}
+                <div class="breakdown-tooltip">
+                  <div class="breakdown-item">
+                    <span class="breakdown-label">Federal tax:</span>
+                    <span
+                      class="breakdown-value"
+                      class:pos={provision.federalChange < 0}
+                      class:neg={provision.federalChange > 0}
+                    >
+                      {formatDollarChange(-provision.federalChange)}
+                    </span>
                   </div>
-                </span>
-                <div class="provision-tooltip">{provision.description}</div>
-              </div>
-            {/each}
-          {:else}
-            <p class="no-provisions">No significant provision changes for this household.</p>
-          {/if}
-        </div>
-      {/if}
+                  <div class="breakdown-item">
+                    <span class="breakdown-label">State tax:</span>
+                    <span
+                      class="breakdown-value"
+                      class:pos={provision.stateChange < 0}
+                      class:neg={provision.stateChange > 0}
+                    >
+                      {formatDollarChange(-provision.stateChange)}
+                    </span>
+                  </div>
+                  <div class="breakdown-item">
+                    <span class="breakdown-label">Cash and health benefits:</span>
+                    <span
+                      class="breakdown-value"
+                      class:pos={provision.benefitsChange > 0}
+                      class:neg={provision.benefitsChange < 0}
+                    >
+                      {formatDollarChange(provision.benefitsChange)}
+                    </span>
+                  </div>
+                </div>
+              </span>
+              <div class="provision-tooltip">{provision.description}</div>
+            </div>
+          {/each}
+        {:else}
+          <p class="no-provisions">No significant provision changes for this household.</p>
+        {/if}
+      </div>
+    {/if}
+    <p class="result-methodology">{getResultMethodology(dataSource)}</p>
   </div>
 {/if}
 
@@ -728,33 +928,46 @@
     margin: 0;
   }
 
+  .result-methodology {
+    margin: 1rem 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.35);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
   /* Color logic for positive/negative/zero values */
-  .value.pos { color: var(--scatter-positive); }
-  .value.neg { color: var(--scatter-negative); }
+  .value.pos {
+    color: var(--scatter-positive);
+  }
+  .value.neg {
+    color: var(--scatter-negative);
+  }
 
   /* Use JetBrains Mono for all text in the household box (PolicyEngine design system) */
   .household-profile,
   .household-profile * {
     font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace !important;
   }
-  
+
   /* New section styles */
   .household-section {
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
   }
-  
+
   .impact-section {
     margin-bottom: 1rem;
   }
-  
+
   .impact-section h4 {
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 1rem 0;
   }
-  
+
   /* Expand buttons */
   .expand-button {
     background: none;
@@ -774,7 +987,7 @@
   .expand-button:hover {
     color: var(--primary-700);
   }
-  
+
   .expand-icon {
     display: inline-flex;
     width: 16px;
@@ -787,27 +1000,27 @@
     line-height: 1;
     font-weight: 400;
   }
-  
+
   /* Expandable details */
   .expandable-details {
     margin-top: 1rem;
     padding-top: 1rem;
     overflow: visible;
   }
-  
+
   .impact-details .detail-item {
     margin-bottom: 0.5rem;
   }
-  
+
   .value.impact {
     font-weight: 700;
   }
-  
+
   /* Provision tooltips */
   .provision-item {
     position: relative;
   }
-  
+
   .provision-label {
     display: inline-flex;
     align-items: center;
@@ -819,11 +1032,11 @@
     text-decoration-thickness: 1px;
     text-decoration-color: var(--text-secondary);
   }
-  
+
   .provision-label:hover {
     text-decoration-color: var(--text-primary);
   }
-  
+
   .provision-tooltip {
     position: absolute;
     left: 0;
@@ -845,22 +1058,22 @@
     transition: all 0.2s ease;
     pointer-events: none;
   }
-  
+
   /* Position tooltip above for last few items to prevent cutoff */
-  .provision-item:nth-last-child(-n+3) .provision-tooltip {
+  .provision-item:nth-last-child(-n + 3) .provision-tooltip {
     top: auto;
     bottom: 100%;
     margin-top: 0;
     margin-bottom: 4px;
     transform: translateY(4px);
   }
-  
+
   .provision-label:hover ~ .provision-tooltip {
     opacity: 1;
     visibility: visible;
     transform: translateY(0);
   }
-  
+
   /* Tooltip arrow */
   .provision-tooltip::before {
     content: '';
@@ -873,15 +1086,15 @@
     border-right: 4px solid transparent;
     border-bottom: 4px solid rgba(24, 35, 51, 0.95);
   }
-  
+
   /* Arrow pointing down for tooltips above */
-  .provision-item:nth-last-child(-n+3) .provision-tooltip::before {
+  .provision-item:nth-last-child(-n + 3) .provision-tooltip::before {
     top: auto;
     bottom: -4px;
     border-bottom: none;
     border-top: 4px solid rgba(24, 35, 51, 0.95);
   }
-  
+
   /* Value breakdown tooltip */
   .value-with-breakdown {
     position: relative;
@@ -891,7 +1104,7 @@
     text-underline-offset: 2px;
     text-decoration-thickness: 1px;
   }
-  
+
   .breakdown-tooltip {
     position: absolute;
     right: 100%;
@@ -914,12 +1127,12 @@
     transition: all 0.2s ease;
     pointer-events: none;
   }
-  
+
   .value-with-breakdown:hover .breakdown-tooltip {
     opacity: 1;
     visibility: visible;
   }
-  
+
   .breakdown-item {
     display: flex;
     justify-content: space-between;
@@ -927,19 +1140,19 @@
     padding: 2px 0;
     gap: 12px;
   }
-  
+
   .breakdown-label {
     font-size: 11px;
     color: var(--text-secondary);
     white-space: nowrap;
   }
-  
+
   .breakdown-value {
     font-weight: 600;
     font-size: 12px;
     white-space: nowrap;
   }
-  
+
   /* Breakdown tooltip arrow pointing right */
   .breakdown-tooltip::after {
     content: '';
@@ -953,7 +1166,7 @@
     border-bottom: 4px solid transparent;
     border-left: 4px solid var(--border);
   }
-  
+
   /* Income sources tooltip - positioned below, aligned to right edge */
   .income-sources-tooltip {
     right: 0;
@@ -975,7 +1188,7 @@
     border-bottom: 4px solid var(--border);
     border-top: none;
   }
-  
+
   /* Mobile responsive styles */
   @media (max-width: 768px) {
     .household-profile {
@@ -983,82 +1196,82 @@
       padding: 1rem;
       border-radius: 6px;
     }
-    
+
     .household-profile h3 {
       font-size: 1rem;
       margin-bottom: 0.75rem;
     }
-    
+
     .header-buttons {
       gap: 0.25rem;
     }
-    
+
     .random-indicator {
       font-size: 0.55em;
     }
-    
+
     .action-button {
       font-size: 14px;
       padding: 2px;
     }
-    
+
     .detail-item {
       padding: 0.375rem 0;
       flex-wrap: wrap;
       gap: 0.25rem;
     }
-    
+
     .detail-item .label {
       font-size: 12px;
       flex: 1 1 auto;
       min-width: 120px;
     }
-    
+
     .detail-item .value {
       font-size: 13px;
       text-align: right;
       flex: 0 0 auto;
     }
-    
+
     .impact-section h4 {
       font-size: 0.85rem;
       margin-bottom: 0.75rem;
     }
-    
+
     .expand-button {
       font-size: 0.75rem;
       padding: 0.375rem 0;
       margin-top: 0.375rem;
     }
-    
+
     .expand-icon {
       width: 14px;
       height: 14px;
       font-size: 12px;
     }
-    
+
     .household-section,
     .impact-section {
       margin-bottom: 1rem;
       padding-bottom: 1rem;
     }
-    
+
     .expandable-details {
       margin-top: 0.75rem;
       padding-top: 0.75rem;
     }
-    
+
     .no-provisions {
       font-size: 12px;
     }
-    
+
     /* Mobile tooltip adjustments */
     .provision-tooltip {
       font-size: 11px;
       padding: 6px 10px;
       max-width: 250px;
     }
-    
+
     /* Mobile breakdown tooltip */
     .breakdown-tooltip {
       right: auto;
@@ -1071,7 +1284,7 @@
       font-size: 11px;
       min-width: 160px;
     }
-    
+
     .breakdown-tooltip::after {
       left: 50%;
       top: 100%;
@@ -1081,63 +1294,63 @@
       border-top: 4px solid var(--border);
       border-bottom: none;
     }
-    
+
     .breakdown-label {
       font-size: 10px;
     }
-    
+
     .breakdown-value {
       font-size: 11px;
     }
   }
-  
+
   @media (max-width: 480px) {
     .household-profile {
       padding: 0.875rem;
     }
-    
+
     .household-profile h3 {
       font-size: 0.875rem;
     }
-    
+
     .random-indicator {
       display: none;
     }
-    
+
     .detail-item .label {
       font-size: 11px;
     }
-    
+
     .detail-item .value {
       font-size: 12px;
     }
-    
+
     .impact-section h4 {
       font-size: 0.8rem;
     }
-    
+
     .expand-button {
       font-size: 0.7rem;
     }
-    
+
     /* Small mobile tooltip adjustments */
     .provision-tooltip {
       font-size: 10px;
       padding: 5px 8px;
       max-width: 200px;
     }
-    
+
     /* Small mobile breakdown tooltip */
     .breakdown-tooltip {
       font-size: 10px;
       min-width: 140px;
       padding: 8px 10px;
     }
-    
+
     .breakdown-label {
       font-size: 9px;
     }
-    
+
     .breakdown-value {
       font-size: 10px;
     }

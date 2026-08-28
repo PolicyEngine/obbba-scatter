@@ -3,6 +3,7 @@
   import { base } from '$app/paths';
   import { COLORS } from '../config/colors.js';
   import { districtDatasets } from '../config/datasets.js';
+  import { getHouseholdWeight } from '../data/householdWeight.js';
 
   export let dataset = 'obbba-vs-current-law'; // Which pre-aggregated file to load
   export let selectedDistrict = null; // null = nationwide
@@ -21,18 +22,57 @@
 
   // State FIPS to name mapping
   const STATE_FIPS_NAMES = {
-    1: "Alabama", 2: "Alaska", 4: "Arizona", 5: "Arkansas", 6: "California",
-    8: "Colorado", 9: "Connecticut", 10: "Delaware", 11: "District of Columbia",
-    12: "Florida", 13: "Georgia", 15: "Hawaii", 16: "Idaho", 17: "Illinois",
-    18: "Indiana", 19: "Iowa", 20: "Kansas", 21: "Kentucky", 22: "Louisiana",
-    23: "Maine", 24: "Maryland", 25: "Massachusetts", 26: "Michigan",
-    27: "Minnesota", 28: "Mississippi", 29: "Missouri", 30: "Montana",
-    31: "Nebraska", 32: "Nevada", 33: "New Hampshire", 34: "New Jersey",
-    35: "New Mexico", 36: "New York", 37: "North Carolina", 38: "North Dakota",
-    39: "Ohio", 40: "Oklahoma", 41: "Oregon", 42: "Pennsylvania",
-    44: "Rhode Island", 45: "South Carolina", 46: "South Dakota",
-    47: "Tennessee", 48: "Texas", 49: "Utah", 50: "Vermont", 51: "Virginia",
-    53: "Washington", 54: "West Virginia", 55: "Wisconsin", 56: "Wyoming"
+    1: 'Alabama',
+    2: 'Alaska',
+    4: 'Arizona',
+    5: 'Arkansas',
+    6: 'California',
+    8: 'Colorado',
+    9: 'Connecticut',
+    10: 'Delaware',
+    11: 'District of Columbia',
+    12: 'Florida',
+    13: 'Georgia',
+    15: 'Hawaii',
+    16: 'Idaho',
+    17: 'Illinois',
+    18: 'Indiana',
+    19: 'Iowa',
+    20: 'Kansas',
+    21: 'Kentucky',
+    22: 'Louisiana',
+    23: 'Maine',
+    24: 'Maryland',
+    25: 'Massachusetts',
+    26: 'Michigan',
+    27: 'Minnesota',
+    28: 'Mississippi',
+    29: 'Missouri',
+    30: 'Montana',
+    31: 'Nebraska',
+    32: 'Nevada',
+    33: 'New Hampshire',
+    34: 'New Jersey',
+    35: 'New Mexico',
+    36: 'New York',
+    37: 'North Carolina',
+    38: 'North Dakota',
+    39: 'Ohio',
+    40: 'Oklahoma',
+    41: 'Oregon',
+    42: 'Pennsylvania',
+    44: 'Rhode Island',
+    45: 'South Carolina',
+    46: 'South Dakota',
+    47: 'Tennessee',
+    48: 'Texas',
+    49: 'Utah',
+    50: 'Vermont',
+    51: 'Virginia',
+    53: 'Washington',
+    54: 'West Virginia',
+    55: 'Wisconsin',
+    56: 'Wyoming'
   };
 
   // Color scales for the map
@@ -50,7 +90,7 @@
   function computeDistrictAggregates(households) {
     const aggregates = {};
 
-    households.forEach(d => {
+    households.forEach((d) => {
       const district = d['Congressional District'];
       if (!district) return;
 
@@ -64,7 +104,7 @@
         };
       }
 
-      const weight = d['Household Weight'] || 1;
+      const weight = getHouseholdWeight(d);
       const change = d['Percentage change in net income'] || 0;
 
       aggregates[district].totalWeight += weight;
@@ -79,7 +119,7 @@
     });
 
     // Compute final metrics
-    Object.keys(aggregates).forEach(district => {
+    Object.keys(aggregates).forEach((district) => {
       const agg = aggregates[district];
       agg.avgChange = agg.totalWeight > 0 ? agg.weightedChangeSum / agg.totalWeight : 0;
       agg.pctWinners = agg.totalWeight > 0 ? (agg.positiveWeight / agg.totalWeight) * 100 : 0;
@@ -187,26 +227,25 @@
 
   // Transform Alaska coordinates - position in bottom left
   function transformAlaska(coords, scale, targetLng, targetLat) {
-    const centerLng = -154, centerLat = 64;
+    const centerLng = -154,
+      centerLat = 64;
     if (typeof coords[0] === 'number') {
       return [
         targetLng + (coords[0] - centerLng) * scale,
         targetLat + (coords[1] - centerLat) * scale
       ];
     }
-    return coords.map(c => transformAlaska(c, scale, targetLng, targetLat));
+    return coords.map((c) => transformAlaska(c, scale, targetLng, targetLat));
   }
 
   // Transform Hawaii coordinates - position in bottom left, next to Alaska
   function transformHawaii(coords, targetLng, targetLat) {
-    const centerLng = -155.5, centerLat = 20;
+    const centerLng = -155.5,
+      centerLat = 20;
     if (typeof coords[0] === 'number') {
-      return [
-        targetLng + coords[0] - centerLng,
-        targetLat + coords[1] - centerLat
-      ];
+      return [targetLng + coords[0] - centerLng, targetLat + coords[1] - centerLat];
     }
-    return coords.map(c => transformHawaii(c, targetLng, targetLat));
+    return coords.map((c) => transformHawaii(c, targetLng, targetLat));
   }
 
   // Format district name
@@ -214,9 +253,7 @@
     const stateFips = Math.floor(geoid / 100);
     const districtNum = geoid % 100;
     const stateName = STATE_FIPS_NAMES[stateFips] || 'Unknown';
-    return districtNum === 0
-      ? `${stateName} (At-Large)`
-      : `${stateName} District ${districtNum}`;
+    return districtNum === 0 ? `${stateName} (At-Large)` : `${stateName} District ${districtNum}`;
   }
 
   // Format metric value for display
@@ -274,7 +311,10 @@
 
         // Fit to continental US bounds (adjusted for transformed AK/HI)
         map.fitBounds(
-          [[-128, 24], [-66, 50]], // [[west, south], [east, north]]
+          [
+            [-128, 24],
+            [-66, 50]
+          ], // [[west, south], [east, north]]
           { padding: 10, duration: 0 }
         );
 
@@ -291,7 +331,6 @@
         mapError = e.message || 'Map error';
         mapLoading = false;
       });
-
     } catch (error) {
       console.error('Error initializing map:', error);
       mapError = error.message;
@@ -306,11 +345,12 @@
       const geoData = await response.json();
 
       // Transform Alaska and Hawaii
-      const transformedFeatures = geoData.features.map(f => {
-        const stateCode = f.properties.STATEFP ||
-          (f.properties.GEOID ? f.properties.GEOID.substring(0, 2) : null);
+      const transformedFeatures = geoData.features.map((f) => {
+        const stateCode =
+          f.properties.STATEFP || (f.properties.GEOID ? f.properties.GEOID.substring(0, 2) : null);
 
-        if (stateCode === '02') { // Alaska
+        if (stateCode === '02') {
+          // Alaska
           return {
             ...f,
             geometry: {
@@ -318,7 +358,8 @@
               coordinates: transformAlaska(f.geometry.coordinates, 0.35, -125, 27)
             }
           };
-        } else if (stateCode === '15') { // Hawaii
+        } else if (stateCode === '15') {
+          // Hawaii
           return {
             ...f,
             geometry: {
@@ -371,15 +412,9 @@
         source: 'districts',
         paint: {
           'line-color': COLORS.BLACK,
-          'line-width': [
-            'case',
-            ['==', ['get', 'geoid'], selectedDistrict || -1],
-            3,
-            0
-          ]
+          'line-width': ['case', ['==', ['get', 'geoid'], selectedDistrict || -1], 3, 0]
         }
       });
-
     } catch (error) {
       console.error('Error loading district data:', error);
     }
@@ -431,11 +466,16 @@
   // Get metric label
   function getMetricLabel(metricKey) {
     switch (metricKey) {
-      case 'relChange': return 'Rel. Change';
-      case 'absChange': return 'Abs. Change';
-      case 'pctWinners': return 'Winners';
-      case 'pctLosers': return 'Losers';
-      default: return 'Value';
+      case 'relChange':
+        return 'Rel. Change';
+      case 'absChange':
+        return 'Abs. Change';
+      case 'pctWinners':
+        return 'Winners';
+      case 'pctLosers':
+        return 'Losers';
+      default:
+        return 'Value';
     }
   }
 
@@ -471,7 +511,7 @@
   }
 
   // Re-run when metric changes to any value
-  $: metric, updateMapColors();
+  $: (metric, updateMapColors());
 
   onMount(() => {
     initMap();
@@ -523,7 +563,11 @@
     <div class="map-legend">
       <div class="legend-title">{getMetricLabel(metric)}</div>
       <div class="legend-scale">
-        <div class="legend-gradient" class:winners={metric === 'pctWinners'} class:losers={metric === 'pctLosers'}></div>
+        <div
+          class="legend-gradient"
+          class:winners={metric === 'pctWinners'}
+          class:losers={metric === 'pctLosers'}
+        ></div>
         <div class="legend-labels">
           {#if metric === 'relChange'}
             <span>+5%</span>
@@ -552,11 +596,21 @@
         {#if agg}
           <div class="district-stats">
             <div class="mini-stat">
-              <span class="mini-value" class:positive={agg.relChange > 0} class:negative={agg.relChange < 0}>{formatMetricValue(agg.relChange, 'relChange')}</span>
+              <span
+                class="mini-value"
+                class:positive={agg.relChange > 0}
+                class:negative={agg.relChange < 0}
+                >{formatMetricValue(agg.relChange, 'relChange')}</span
+              >
               <span class="mini-label">rel. change</span>
             </div>
             <div class="mini-stat">
-              <span class="mini-value" class:positive={agg.absChange > 0} class:negative={agg.absChange < 0}>{formatMetricValue(agg.absChange, 'absChange')}</span>
+              <span
+                class="mini-value"
+                class:positive={agg.absChange > 0}
+                class:negative={agg.absChange < 0}
+                >{formatMetricValue(agg.absChange, 'absChange')}</span
+              >
               <span class="mini-label">abs. change</span>
             </div>
             <div class="mini-stat">
@@ -571,9 +625,7 @@
         {/if}
       </div>
     {:else}
-      <div class="help-text">
-        Click a district on the map to see details
-      </div>
+      <div class="help-text">Click a district on the map to see details</div>
     {/if}
   </div>
 </div>
@@ -648,7 +700,7 @@
   }
 
   .mini-value.negative {
-    color: #6B7280;
+    color: #6b7280;
   }
 
   .mini-label {
@@ -680,7 +732,9 @@
     padding: 6px 28px 6px 10px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
-    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L2 4h8z'/%3E%3C/svg%3E") no-repeat right 8px center;
+    background: #fff
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8L2 4h8z'/%3E%3C/svg%3E")
+      no-repeat right 8px center;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
     color: #334155;
@@ -699,7 +753,8 @@
     position: relative;
   }
 
-  .map-loading, .map-error {
+  .map-loading,
+  .map-error {
     position: absolute;
     inset: 0;
     display: flex;
@@ -728,7 +783,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .map-legend {
@@ -762,38 +819,17 @@
     height: 40px;
     border-radius: 2px;
     /* Default: diverging scale for avgChange (green positive, white zero, grey negative) */
-    background: linear-gradient(
-      to bottom,
-      #319795,
-      #81E6D9,
-      #FFFFFF,
-      #BDBDBD,
-      #616161
-    );
+    background: linear-gradient(to bottom, #319795, #81e6d9, #ffffff, #bdbdbd, #616161);
   }
 
   .legend-gradient.winners {
     /* White to green for % Winners (0% to 100%) */
-    background: linear-gradient(
-      to bottom,
-      #319795,
-      #4FD1C5,
-      #81E6D9,
-      #B2F5EA,
-      #FFFFFF
-    );
+    background: linear-gradient(to bottom, #319795, #4fd1c5, #81e6d9, #b2f5ea, #ffffff);
   }
 
   .legend-gradient.losers {
     /* White to grey for % Losers (0% to 100%) */
-    background: linear-gradient(
-      to bottom,
-      #616161,
-      #9E9E9E,
-      #BDBDBD,
-      #E0E0E0,
-      #FFFFFF
-    );
+    background: linear-gradient(to bottom, #616161, #9e9e9e, #bdbdbd, #e0e0e0, #ffffff);
   }
 
   .legend-labels {

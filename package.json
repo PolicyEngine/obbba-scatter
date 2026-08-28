@@ -13,10 +13,11 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
+    "validate:data": "node scripts/validate-microcosm-data.js",
     "format": "prettier --write \"src/**/*.{js,svelte,json,css}\"",
     "format:check": "prettier --check \"src/**/*.{js,svelte,json,css}\"",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.json --watch",
+    "check": "svelte-kit sync && svelte-check --threshold warning",
+    "check:watch": "svelte-kit sync && svelte-check --threshold warning --watch",
     "deploy": "npm run build && npx gh-pages -d build -t true"
   },
   "devDependencies": {
