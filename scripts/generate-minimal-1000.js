@@ -45,14 +45,15 @@ async function createMinimal1000() {
   const totalWeight = sourceRows.reduce((sum, row) => sum + getHouseholdWeight(row), 0);
   const sampleWeight = totalWeight / sample.length;
 
-  const minimalData = sample.map((row) => ({
-    'Household ID': row['Household ID'],
-    'Market Income': row['Market Income'] || 0,
-    'Total change in net income':
-      row['Total change in net income'] || row['Change in Household Net Income'] || 0,
-    'Percentage change in net income': row['Percentage change in net income'],
-    [HOUSEHOLD_WEIGHT_FIELD]: sampleWeight
-  }));
+  // Keep every profile and provision column so household disclosures work
+  // during the instant first paint, before the full artifact finishes loading.
+  const minimalData = sample.map((row) => {
+    const { id: _id, ...fields } = row;
+    return {
+      ...fields,
+      [HOUSEHOLD_WEIGHT_FIELD]: sampleWeight
+    };
+  });
 
   // Convert back to CSV - no quotes needed for numbers
   const csv = Papa.unparse(minimalData, {
@@ -65,9 +66,7 @@ async function createMinimal1000() {
   fs.writeFileSync(outputPath, csv);
   const fileSize = fs.statSync(outputPath).size;
   console.log(`Created minimal CSV: ${(fileSize / 1024).toFixed(1)} KB`);
-  console.log(
-    `Columns: Household ID, Market Income, Total change in net income, Percentage change in net income, ${HOUSEHOLD_WEIGHT_FIELD}`
-  );
+  console.log(`Columns: ${Object.keys(minimalData[0]).length} profile and provision fields`);
   console.log(`Rows: ${minimalData.length}`);
 
   console.log('\n✅ Done! File saved to:', outputFile);
